@@ -906,7 +906,7 @@ select:focus{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
       var done = false;
       var t = setTimeout(function(){
         if (!done){ done = true; resolve("local"); }
-      }, 2500);
+      }, 12000);
       fetch("api/state", { headers: { Accept: "application/json" } })
         .then(function(r){
           if (done) return;
@@ -1104,13 +1104,13 @@ select:focus{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
       }).catch(function(err){
         if (err && err.code === 401){ doLogout(); return; }
         API_ONLINE = false;
-        setConn("", "Modo local (navegador)");
+        setConn("off", "Modo local — sem conexão com o banco");
         loadLocal(squad);
         render();
       });
     } else {
       API_ONLINE = false;
-      setConn("", "Modo local (navegador)");
+      setConn("off", "Modo local — sem conexão com o banco");
       loadLocal(squad);
       render();
     }
@@ -1120,6 +1120,15 @@ select:focus{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
     serverMode = false;
     if (session){ enterApp(); }
     else { showLogin(); }
+    scheduleServerProbe();
+  }
+  function scheduleServerProbe(){
+    setTimeout(function(){
+      if (serverMode) return;
+      testServer().then(function(mode){
+        if (mode === "server" && !serverMode) location.reload();
+      });
+    }, 7000);
   }
   function startServer(){
     serverMode = true;
