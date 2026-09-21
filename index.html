@@ -684,8 +684,7 @@ select:focus{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
         </div>
         <div class="fg" data-od-id="field-po">
           <label for="in-po">PO responsável</label>
-          <input type="text" id="in-po" list="po-list" placeholder="Nome do PO">
-          <datalist id="po-list"></datalist>
+          <select id="in-po"></select>
           <span class="err">Informe o PO responsável.</span>
         </div>
         <div class="fg" data-od-id="field-prazo">
@@ -870,7 +869,7 @@ var supabase = null;
     fillFormSelect("in-pri", options.prioridades, it ? it.pri : (options.prioridades[0] || "Média"));
     fillFormSelect("in-status", options.status, it ? it.status : (options.status[0] || "Backlog"));
     fillFormSelect("in-area", options.areas, it ? it.area : (options.areas[0] || ""));
-    document.getElementById("po-list").innerHTML = options.pos.map(function(p){ return '<option value="' + esc(p) + '">'; }).join("");
+    fillFormSelect("in-po", options.pos, it ? it.po : (session && session.name ? session.name : ""));
   }
 
   /* ---------- Sessão / Login ---------- */
@@ -1213,7 +1212,11 @@ var supabase = null;
       if (it.nome.toLowerCase().indexOf(q) < 0 && it.numero.toLowerCase().indexOf(q) < 0 && it.po.toLowerCase().indexOf(q) < 0) return false;
     }
     if (filter.pri && it.pri !== filter.pri) return false;
-    if (filter.po && it.po !== filter.po) return false;
+    if (filter.po){
+      var _a = String(it.po || "").trim().toLowerCase();
+      var _b = String(filter.po).trim().toLowerCase();
+      if (_a !== _b) return false;
+    }
     if (filter.status && it.status !== filter.status) return false;
     return true;
   }
