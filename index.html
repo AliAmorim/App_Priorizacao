@@ -838,7 +838,9 @@ var supabase = null;
   function saveOpts(){
     if (!dataConnected || !supabase) return;
     supabase.from("app_options").upsert({ squad: currentSquad, data: options }, { onConflict: "squad" })
-      .then(function(r){ if (r.error) setConn("off", "Falha ao salvar no banco"); });
+      .then(function(r){
+        if (r.error) setConn("off", "Falha ao salvar: " + r.error.message);
+      });
   }
 
   function fillSelect(id, values, allLabel, cur){
@@ -1103,8 +1105,9 @@ var supabase = null;
         if (r && r.error) throw r.error;
         setConn("on", "Conectado ao banco de dados");
       })
-      .catch(function(){
-        setConn("off", "Falha ao salvar no banco");
+      .catch(function(err){
+        var msg = (err && err.message) ? err.message : "Falha ao salvar no banco";
+        setConn("off", "Falha ao salvar: " + msg);
       });
   }
 
