@@ -919,11 +919,11 @@ var supabase = null;
         if (!r.ok) throw { code: "config-http" };
         return r.json();
       })
-      .then(function(cfg){
-        if (!cfg.url || !cfg.anonKey) throw { code: "config-env" };
+      .then(function(data){
+        if (!data.url || !data.anonKey) throw { code: "config-env" };
         return waitForSupabaseLib(6000).then(function(ok){
           if (!ok) throw { code: "cdnd" };
-          supabase = window.supabase.createClient(cfg.url, cfg.anonKey, { auth: { persistSession: false } });
+          supabase = window.supabase.createClient(data.url, data.anonKey, { auth: { persistSession: false } });
         });
       })
       .then(function(){
@@ -936,7 +936,7 @@ var supabase = null;
         var msg = "Sem conexão com o banco";
         if (err && err.code === "cdnd") msg = "Biblioteca do Supabase não carregou (CDN bloqueado?)";
         else if (err && err.code === "config-env") msg = "SUPABASE_URL/SUPABASE_ANON_KEY ausentes no Vercel";
-        else if (err && err.code === "config-api") msg = "/api/config não encontrado — deploy desatualizado?";
+        else if (err && err.code === "config-api") msg = "Api /api/config não encontrada — verifique se api/config.js está no repositório do GitHub (git add api/config.js) e se o build passou.";
         else if (err && err.code === "config-http") msg = "Erro ao acessar /api/config";
         setConn("off", msg);
         if (window.console) console.log("[initSupabase]", msg, err);
