@@ -4,8 +4,10 @@
   "entryFile": "priorizacao-devops.html",
   "sourceFiles": {
     "all": [
+      "api/config.js",
       "api/login.js",
       "api/state.js",
+      "image.png",
       "lib/auth.js",
       "lib/db.js",
       "package.json",
@@ -19,12 +21,14 @@
     ],
     "css": [],
     "scriptsAndComponents": [
+      "api/config.js",
       "api/login.js",
       "api/state.js",
       "lib/auth.js",
       "lib/db.js"
     ],
     "assets": [
+      "image.png",
       "package.json",
       "README.md",
       "schema.sql",
@@ -88,6 +92,7 @@
   },
   "interactions": {
     "source": [
+      "api/config.js",
       "api/login.js",
       "api/state.js",
       "lib/auth.js",

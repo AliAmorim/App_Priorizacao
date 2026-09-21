@@ -13,8 +13,8 @@ This archive is the source of truth for turning the design into production code.
 - Primary entry: `priorizacao-devops.html`
 - HTML screens detected: 1
 - Stylesheets detected: 0
-- Script/component files detected: 4
-- Supporting assets detected: 4
+- Script/component files detected: 5
+- Supporting assets detected: 5
 
 ## Responsive contract
 Validate the implementation across this 2025–2026 viewport matrix:
@@ -69,12 +69,14 @@ For responsive web exports, treat these as a modern breakpoint system for one ad
 - None detected
 
 ## Scripts/components
+- `api/config.js`
 - `api/login.js`
 - `api/state.js`
 - `lib/auth.js`
 - `lib/db.js`
 
 ## Assets and supporting files
+- `image.png`
 - `package.json`
 - `README.md`
 - `schema.sql`

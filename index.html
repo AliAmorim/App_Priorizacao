@@ -763,6 +763,7 @@ select:focus{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
 </div>
 
 <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 <script>
 (function(){
   "use strict";
@@ -775,14 +776,10 @@ select:focus{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
     areas: ["Autenticação", "CI/CD", "Infraestrutura", "Monitoramento", "Segurança", "Dados", "Plataforma"]
   };
   var options;
-  var API_ONLINE = false;
-  var serverMode = false;
+var supabase = null;
+  var dataConnected = false;
   var session = null;
   var currentSquad = null;
-
-  function slug(s){ return String(s).toLowerCase().replace(/[^a-z0-9]+/g, "-"); }
-  function itemKey(){ return "backlog-devops-itens-" + slug(currentSquad) + "-v2"; }
-  function optKey(){ return "backlog-devops-opts-" + slug(currentSquad) + "-v2"; }
 
   function clone(o){ return JSON.parse(JSON.stringify(o)); }
   function priScore(p){ var i = options.prioridades.indexOf(p); return i < 0 ? 999 : i; }
@@ -827,21 +824,10 @@ select:focus{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
 
   function renumber(){ items.forEach(function(it, i){ it.ordem = i + 1; }); }
 
-  function loadOpts(){
-    try {
-      var raw = localStorage.getItem(optKey());
-      if (raw) options = JSON.parse(raw);
-    } catch(e){}
-    if (!options || !options.prioridades || !options.status || !options.pos || !options.areas){
-      options = clone(DEFAULT_OPTIONS);
-    }
-    ["prioridades","status","pos","areas"].forEach(function(k){
-      if (!Array.isArray(options[k]) || options[k].length === 0) options[k] = DEFAULT_OPTIONS[k].slice();
-    });
-  }
   function saveOpts(){
-    try { localStorage.setItem(optKey(), JSON.stringify(options)); } catch(e){}
-    if (API_ONLINE) pushState();
+    if (!dataConnected || !supabase) return;
+    supabase.from("app_options").upsert({ squad: currentSquad, data: options }, { onConflict: "squad" })
+      .then(function(r){ if (r.error) setConn("off", "Falha ao salvar no banco"); });
   }
 
   function fillSelect(id, values, allLabel, cur){
@@ -901,32 +887,20 @@ select:focus{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
     document.getElementById("login-err").textContent = "";
   }
 
-  function testServer(){
-    return new Promise(function(resolve){
-      var done = false;
-      var t = setTimeout(function(){
-        if (!done){ done = true; resolve("local"); }
-      }, 12000);
-      fetch("api/state", { headers: { Accept: "application/json" } })
-        .then(function(r){
-          if (done) return;
-          done = true;
-          clearTimeout(t);
-          if (r.status === 401){ resolve("server"); return; }
-          if (r.status === 404){ resolve("local"); return; }
-          var ct = (r.headers.get("content-type") || "");
-          resolve(ct.indexOf("application/json") >= 0 ? "server" : "local");
-        })
-        .catch(function(){
-          if (!done){ done = true; clearTimeout(t); resolve("local"); }
-        });
-    });
-  }
-
-  function authHeaders(){
-    var h = { Accept: "application/json" };
-    if (session && session.token) h.Authorization = "Bearer " + session.token;
-    return h;
+  function initSupabase(){
+    return fetch("api/config", { headers: { Accept: "application/json" } })
+      .then(function(r){ if (!r.ok) throw new Error("config"); return r.json(); })
+      .then(function(cfg){
+        if (!window.supabase || !cfg.url || !cfg.anonKey) throw new Error("config");
+        supabase = window.supabase.createClient(cfg.url, cfg.anonKey, { auth: { persistSession: false } });
+        dataConnected = true;
+        setConn("on", "Conectado ao banco de dados");
+      })
+      .catch(function(){
+        supabase = null;
+        dataConnected = false;
+        setConn("off", "Sem conexão com o banco");
+      });
   }
 
   var loginBusy = false;
@@ -943,7 +917,7 @@ select:focus{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
     var p = String(password || "");
     if (!u || !p){ showLogin("Informe usuário e senha."); return; }
 
-    if (serverMode){
+    if (dataConnected){
       loginBusy = true;
       setLoginBusy(true);
       var timedOut = false;
@@ -952,8 +926,8 @@ select:focus{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
         timedOut = true;
         loginBusy = false;
         setLoginBusy(false);
-        showLogin("O servidor não respondeu. Entrando no modo demonstração local.");
-        startLocal();
+        goLocal();
+        showLogin();
       }, 8000);
       fetch("api/login", {
         method: "POST",
@@ -980,7 +954,7 @@ select:focus{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
         clearTimeout(timer);
         loginBusy = false;
         setLoginBusy(false);
-        if (err && err.code === 404){ startLocal(); return; }
+        if (err && err.code === 404){ goLocal(); return; }
         showLogin(err && err.message ? err.message : "Não foi possível entrar.");
       });
     } else {
@@ -997,7 +971,6 @@ select:focus{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
   function doLogout(){
     clearSession();
     currentSquad = null;
-    API_ONLINE = false;
     showLogin();
   }
 
@@ -1045,121 +1018,72 @@ select:focus{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
     document.getElementById("squad-screen").classList.remove("open");
   }
 
-  function loadLocal(squad){
-    currentSquad = squad;
-    loadOpts();
-    buildFilterOptions();
-    try {
-      var raw = localStorage.getItem(itemKey());
-      if (raw) {
-        items = JSON.parse(raw);
-        var changed = false;
-        items.forEach(function(it, i){ if (!it.ordem){ it.ordem = i + 1; changed = true; } });
-        if (changed) save();
-        return;
-      }
-    } catch(e) {}
-    items = [];
-    save();
-  }
-
-  function fetchState(){
-    return fetch("api/state?squad=" + encodeURIComponent(currentSquad), { headers: authHeaders() })
-      .then(function(r){
-        if (r.status === 401) throw { code: 401 };
-        if (!r.ok) throw new Error("api");
-        return r.json();
-      });
-  }
-  function pushState(){
-    return fetch("api/state", {
-      method: "PUT",
-      headers: { "Content-Type": "application/json", Authorization: "Bearer " + (session ? session.token : "") },
-      body: JSON.stringify({ squad: currentSquad, items: items, options: options })
-    }).then(function(r){ if (!r.ok) throw new Error("api"); }).catch(function(){
-      API_ONLINE = false;
-      setConn("off", "Conexão perdida — usando modo local");
-    });
-  }
-
   function loadSquad(squad){
     currentSquad = squad;
     session.lastSquad = squad;
     saveSession();
     updateSquadUI();
-    if (serverMode){
-      fetchState().then(function(state){
-        API_ONLINE = true;
-        setConn("on", "Conectado ao banco de dados");
-        items = (state.items && state.items.length) ? state.items : [];
-        options = state.options ? state.options : clone(DEFAULT_OPTIONS);
-        ["prioridades","status","pos","areas"].forEach(function(k){
-          if (!Array.isArray(options[k]) || options[k].length === 0) options[k] = DEFAULT_OPTIONS[k].slice();
-        });
-        var changed = false;
-        items.forEach(function(it, i){ if (!it.ordem){ it.ordem = i + 1; changed = true; } });
-        if (changed || !state.items || !state.options) pushState();
-        buildFilterOptions();
-        render();
-      }).catch(function(err){
-        if (err && err.code === 401){ doLogout(); return; }
-        API_ONLINE = false;
-        setConn("off", "Modo local — sem conexão com o banco");
-        loadLocal(squad);
-        render();
-      });
-    } else {
-      API_ONLINE = false;
-      setConn("off", "Modo local — sem conexão com o banco");
-      loadLocal(squad);
+    if (!dataConnected){
+      items = [];
+      options = clone(DEFAULT_OPTIONS);
+      buildFilterOptions();
       render();
+      return;
     }
+    var pItems = supabase.from("items").select("numero,nome,po,pri,status,area,prazo,ordem").eq("squad", squad).order("ordem");
+    var pOpts = supabase.from("app_options").select("data").eq("squad", squad).maybeSingle();
+    Promise.all([pItems, pOpts]).then(function(res){
+      var it = res[0], op = res[1];
+      if (it.error) throw it.error;
+      items = (it.data && it.data.length) ? it.data : [];
+      options = (op.data && op.data.data) ? op.data.data : clone(DEFAULT_OPTIONS);
+      ["prioridades","status","pos","areas"].forEach(function(k){
+        if (!Array.isArray(options[k]) || options[k].length === 0) options[k] = DEFAULT_OPTIONS[k].slice();
+      });
+      items.forEach(function(x, i){ if (!x.ordem) x.ordem = i + 1; });
+      buildFilterOptions();
+      render();
+    }).catch(function(){
+      setConn("off", "Falha ao ler o banco");
+    });
   }
 
-  function startLocal(){
-    serverMode = false;
-    if (session){ enterApp(); }
-    else { showLogin(); }
-    scheduleServerProbe();
-  }
-  function scheduleServerProbe(){
-    setTimeout(function(){
-      if (serverMode) return;
-      testServer().then(function(mode){
-        if (mode === "server" && !serverMode) location.reload();
+  function persistSquad(){
+    if (!dataConnected || !supabase) return;
+    supabase.from("items").delete().eq("squad", currentSquad)
+      .then(function(d){
+        if (d.error) throw d.error;
+        if (!items.length) return null;
+        var rows = items.map(function(r){
+          return { squad: currentSquad, numero: r.numero, nome: r.nome, po: r.po, pri: r.pri, status: r.status, area: r.area, prazo: r.prazo || "", ordem: r.ordem };
+        });
+        return supabase.from("items").insert(rows);
+      })
+      .then(function(r){
+        if (r && r.error) throw r.error;
+        setConn("on", "Conectado ao banco de dados");
+      })
+      .catch(function(){
+        setConn("off", "Falha ao salvar no banco");
       });
-    }, 7000);
   }
-  function startServer(){
-    serverMode = true;
-    if (session && session.token){
-      fetch("api/login", { headers: { Authorization: "Bearer " + session.token, Accept: "application/json" } })
-        .then(function(r){
-          if (r.status === 401) throw { code: 401 };
-          return r.json();
-        })
-        .then(function(data){
-          session = { username: data.user.username, name: data.user.name, squads: data.user.squads, token: session.token, lastSquad: session.lastSquad };
-          saveSession();
-          enterApp();
-        })
-        .catch(function(){ doLogout(); });
-    } else {
-      showLogin();
-    }
+
+  function goLocal(){
+    dataConnected = false;
+    supabase = null;
+    setConn("off", "Sem conexão com o banco");
   }
 
   function load(){
     session = loadSession();
-    testServer().then(function(mode){
-      if (mode === "server"){ startServer(); }
-      else { startLocal(); }
+    initSupabase().then(function(){
+      if (session){ enterApp(); }
+      else { showLogin(); }
     });
   }
 
   function save(){
-    try { localStorage.setItem(itemKey(), JSON.stringify(items)); } catch(e) {}
-    if (API_ONLINE) pushState();
+    if (dataConnected) persistSquad();
   }
 
   function esc(s){
