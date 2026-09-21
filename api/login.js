@@ -25,7 +25,7 @@ export default async function handler(req, res) {
         // Diagnóstico: usuário não encontrado — em produção, quase sempre é RLS na tabela
         // "users" bloqueando a leitura com a chave anônima, ou SUPABASE_SERVICE_ROLE_KEY ausente.
         if (console && console.log) console.log('[login] usuário não encontrado:', username);
-        res.status(401).json({ error: 'Usuário não encontrado.' });
+        res.status(401).json({ error: 'Usuário não encontrado — confira se SUPABASE_SERVICE_ROLE_KEY está no Vercel (RLS da tabela users).' });
         return;
       }
       if (hashPassword(password) !== user.password) {
