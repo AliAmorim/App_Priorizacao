@@ -355,7 +355,6 @@ select:focus{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
 }
 .login-form input:focus{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
 .login-err{font-size:12.5px;color:var(--danger);min-height:16px}
-.login-mode{font-size:12px;color:var(--muted);text-align:center;margin-top:10px;min-height:16px}
 .btn-block{width:100%;justify-content:center;padding:11px;margin-top:2px}
 .login-demo{margin-top:18px;padding-top:16px;border-top:1px solid var(--border)}
 .demo-label{display:block;font-size:12px;font-weight:600;letter-spacing:0.06em;text-transform:uppercase;color:var(--muted);margin-bottom:8px}
@@ -497,7 +496,6 @@ select:focus{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
       <div class="login-err" id="login-err"></div>
       <button type="button" id="btn-login" class="btn btn-primary btn-block">Entrar</button>
     </form>
-    <div class="login-mode" id="login-mode"></div>
   </div>
 </div>
 
@@ -903,11 +901,6 @@ select:focus{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
     document.getElementById("login-err").textContent = "";
   }
 
-  function setLoginMode(text){
-    var el = document.getElementById("login-mode");
-    if (el) el.textContent = text;
-  }
-
   function testServer(){
     return new Promise(function(resolve){
       var done = false;
@@ -1125,13 +1118,11 @@ select:focus{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
 
   function startLocal(){
     serverMode = false;
-    setLoginMode("Modo: demonstração local — dados salvos neste navegador");
     if (session){ enterApp(); }
-    else { showLogin("Servidor não encontrado — modo demonstração local."); }
+    else { showLogin(); }
   }
   function startServer(){
     serverMode = true;
-    setLoginMode("Modo: servidor — conectado ao banco de dados");
     if (session && session.token){
       fetch("api/login", { headers: { Authorization: "Bearer " + session.token, Accept: "application/json" } })
         .then(function(r){
@@ -1150,6 +1141,7 @@ select:focus{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
   }
 
   function load(){
+    session = loadSession();
     testServer().then(function(mode){
       if (mode === "server"){ startServer(); }
       else { startLocal(); }
