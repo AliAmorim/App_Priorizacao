@@ -763,7 +763,18 @@ select:focus{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
 </div>
 
 <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<script>
+  (function(){
+    window.__sbFallback = function(){
+      if (window.supabase) return;
+      var s = document.createElement('script');
+      s.src = 'https://unpkg.com/@supabase/supabase-js@2/dist/umd/supabase.min.js';
+      s.async = true;
+      document.head.appendChild(s);
+    };
+  })();
+</script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js" onerror="window.__sbFallback && window.__sbFallback()"></script>
 <script>
 (function(){
   "use strict";
@@ -887,19 +898,48 @@ var supabase = null;
     document.getElementById("login-err").textContent = "";
   }
 
+  function waitForSupabaseLib(ms){
+    return new Promise(function(resolve){
+      var waited = 0;
+      function check(){
+        if (window.supabase) return resolve(true);
+        if (waited >= ms) return resolve(false);
+        waited += 200;
+        setTimeout(check, 200);
+      }
+      check();
+    });
+  }
+
   function initSupabase(){
     return fetch("api/config", { headers: { Accept: "application/json" } })
-      .then(function(r){ if (!r.ok) throw new Error("config"); return r.json(); })
+      .then(function(r){
+        if (r.status === 404) throw { code: "config-api" };
+        if (r.status === 500) throw { code: "config-env" };
+        if (!r.ok) throw { code: "config-http" };
+        return r.json();
+      })
       .then(function(cfg){
-        if (!window.supabase || !cfg.url || !cfg.anonKey) throw new Error("config");
-        supabase = window.supabase.createClient(cfg.url, cfg.anonKey, { auth: { persistSession: false } });
+        if (!cfg.url || !cfg.anonKey) throw { code: "config-env" };
+        return waitForSupabaseLib(6000).then(function(ok){
+          if (!ok) throw { code: "cdnd" };
+          supabase = window.supabase.createClient(cfg.url, cfg.anonKey, { auth: { persistSession: false } });
+        });
+      })
+      .then(function(){
         dataConnected = true;
         setConn("on", "Conectado ao banco de dados");
       })
-      .catch(function(){
+      .catch(function(err){
         supabase = null;
         dataConnected = false;
-        setConn("off", "Sem conexão com o banco");
+        var msg = "Sem conexão com o banco";
+        if (err && err.code === "cdnd") msg = "Biblioteca do Supabase não carregou (CDN bloqueado?)";
+        else if (err && err.code === "config-env") msg = "SUPABASE_URL/SUPABASE_ANON_KEY ausentes no Vercel";
+        else if (err && err.code === "config-api") msg = "/api/config não encontrado — deploy desatualizado?";
+        else if (err && err.code === "config-http") msg = "Erro ao acessar /api/config";
+        setConn("off", msg);
+        if (window.console) console.log("[initSupabase]", msg, err);
       });
   }
 
