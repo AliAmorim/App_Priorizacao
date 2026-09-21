@@ -1,5 +1,5 @@
 import { cors, requireUser, parseBody } from '../lib/auth.js';
-import { listarUserStories, salvarUserStories, listarOpcoes, salvarOpcoes } from '../lib/db.js';
+import { listarUserStories, salvarUserStories, listarOpcoes, salvarOpcoes, limparConcluidasAntigas } from '../lib/db.js';
 
 export default async function handler(req, res) {
   cors(res);
@@ -27,6 +27,10 @@ export default async function handler(req, res) {
     if (isWrite) {
       await salvarUserStories(squad, body.items || []);
       if (body.options) await salvarOpcoes(squad, body.options);
+      // Limpeza assíncrona (não bloqueia a resposta): apaga Concluídas com mais de 30 dias.
+      limparConcluidasAntigas().catch(function(e){
+        if (console && console.log) console.log('[cleanup]', e && e.message);
+      });
       res.status(200).json({ ok: true, salvas: (body.items || []).length });
       return;
     }
