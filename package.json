@@ -1,0 +1,15 @@
+{
+  "name": "backlog-devops",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vercel dev"
+  },
+  "dependencies": {
+    "@vercel/postgres": "^0.10.0"
+  },
+  "devDependencies": {
+    "vercel": "^39.0.0"
+  }
+}
