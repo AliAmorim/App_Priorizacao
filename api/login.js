@@ -15,13 +15,22 @@ export default async function handler(req, res) {
         res.status(400).json({ error: 'Informe usuário e senha.' });
         return;
       }
-      const { data: user } = await getDb()
+      const { data: user, error } = await getDb()
         .from('users')
         .select('username, name, password, squads')
         .eq('username', String(username).trim().toLowerCase())
         .maybeSingle();
-      if (!user || hashPassword(password) !== user.password) {
-        res.status(401).json({ error: 'Usuário ou senha inválidos.' });
+      if (error) throw new Error(error.message);
+      if (!user) {
+        // Diagnóstico: usuário não encontrado — em produção, quase sempre é RLS na tabela
+        // "users" bloqueando a leitura com a chave anônima, ou SUPABASE_SERVICE_ROLE_KEY ausente.
+        if (console && console.log) console.log('[login] usuário não encontrado:', username);
+        res.status(401).json({ error: 'Usuário não encontrado.' });
+        return;
+      }
+      if (hashPassword(password) !== user.password) {
+        if (console && console.log) console.log('[login] senha incorreta para:', username);
+        res.status(401).json({ error: 'Senha incorreta.' });
         return;
       }
       const payload = { u: user.username, exp: Date.now() + 7 * 24 * 3600 * 1000 };
