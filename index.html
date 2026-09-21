@@ -783,7 +783,7 @@ select:focus{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
   var DEFAULT_OPTIONS = {
     prioridades: ["Urgente", "Alta", "Média", "Baixa"],
     status: ["Backlog", "Em andamento", "Concluído", "Bloqueado"],
-    pos: ["Rafaela Menezes", "Carlos Duarte", "Ana Beatriz Luz", "João Pedro Salles"],
+    pos: ["Aline Amorim", "Nairlla Hanna", "Louise Oliveira", "Juliana Constancio", "Kathiane Marques"],
     areas: ["Autenticação", "CI/CD", "Infraestrutura", "Monitoramento", "Segurança", "Dados", "Plataforma"]
   };
   var options;
@@ -1083,11 +1083,27 @@ var supabase = null;
         if (!Array.isArray(options[k]) || options[k].length === 0) options[k] = DEFAULT_OPTIONS[k].slice();
       });
       items.forEach(function(x, i){ if (!x.ordem) x.ordem = i + 1; });
+      ensurePOFilter();
       buildFilterOptions();
       render();
     }).catch(function(){
       setConn("off", "Falha ao ler o banco");
     });
+  }
+
+  function ensurePOFilter(){
+    if (!options || !Array.isArray(options.pos)) return;
+    var pos = options.pos.slice();
+    var need = false;
+    items.forEach(function(i){
+      var n = String(i.po || "").trim();
+      if (n && pos.indexOf(n) < 0){ pos.push(n); need = true; }
+    });
+    if (session && session.name && pos.indexOf(session.name) < 0){ pos.push(session.name); need = true; }
+    if (need){
+      options.pos = pos;
+      saveOpts();
+    }
   }
 
   function persistSquad(){
