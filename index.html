@@ -1104,11 +1104,19 @@ var supabase = null;
       .then(function(r){
         if (r && r.error) throw r.error;
         setConn("on", "Conectado ao banco de dados");
+        limparConcluidasAntigasLocal();
       })
       .catch(function(err){
         var msg = (err && err.message) ? err.message : "Falha ao salvar no banco";
         setConn("off", "Falha ao salvar: " + msg);
       });
+  }
+
+  function limparConcluidasAntigasLocal(){
+    if (!dataConnected || !supabase) return;
+    var corte = new Date(Date.now() - 30 * 24 * 3600 * 1000).toISOString();
+    supabase.from("items").delete().eq("status", "Concluído").lt("created_at", corte)
+      .then(function(r){ if (r.error && window.console) console.log("[cleanup]", r.error.message); });
   }
 
   function goLocal(){

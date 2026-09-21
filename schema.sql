@@ -18,6 +18,7 @@ CREATE TABLE IF NOT EXISTS items (
   area TEXT NOT NULL,
   prazo TEXT NOT NULL,
   ordem INTEGER NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   PRIMARY KEY (squad, numero)
 );
 
@@ -26,3 +27,15 @@ CREATE TABLE IF NOT EXISTS app_options (
   squad TEXT PRIMARY KEY,
   data JSONB NOT NULL
 );
+
+-- O navegador acessa o Supabase direto com a chave ANÔNIMA (pública). Sem estas
+-- policies, a RLS bloqueia leitura/escrita de itens e opções. A tabela "users"
+-- fica protegida (sem policy) — só o servidor a acessa via chave de serviço.
+-- (DROP IF EXISTS torna o script re-executável sem erro.)
+ALTER TABLE items ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS items_anon_all ON items;
+CREATE POLICY items_anon_all ON items FOR ALL TO anon USING (true) WITH CHECK (true);
+
+ALTER TABLE app_options ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS app_options_anon_all ON app_options;
+CREATE POLICY app_options_anon_all ON app_options FOR ALL TO anon USING (true) WITH CHECK (true);
