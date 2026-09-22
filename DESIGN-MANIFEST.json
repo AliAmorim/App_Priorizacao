@@ -9,6 +9,7 @@
       "api/password.js",
       "api/squads.js",
       "api/state.js",
+      "api/users.js",
       "id-t-tulo-8-_1_.csv",
       "id-t-tulo-8.csv",
       "image.png",
@@ -31,6 +32,7 @@
       "api/password.js",
       "api/squads.js",
       "api/state.js",
+      "api/users.js",
       "lib/auth.js",
       "lib/db.js"
     ],
@@ -107,6 +109,7 @@
       "api/password.js",
       "api/squads.js",
       "api/state.js",
+      "api/users.js",
       "lib/auth.js",
       "lib/db.js"
     ],
