@@ -347,6 +347,7 @@ select:focus{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
 
 /* ---------- Gerenciar squads ---------- */
 #overlay-squads{z-index:110}
+#overlay-users{z-index:110}
 .fb-sep{color:var(--muted)}
 .squads-list{display:flex;flex-wrap:wrap;gap:8px;margin:12px 0 4px}
 .squads-none{font-size:13px;color:var(--muted)}
@@ -544,6 +545,8 @@ select:focus{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
     </div>
     <div class="squad-options" id="squad-options"></div>
     <div class="login-fallback">
+      <button type="button" id="btn-user-open" style="display:none">Cadastrar usuário</button>
+      <span class="fb-sep">·</span>
       <button type="button" id="btn-squads-open">Gerenciar squads</button>
       <span class="fb-sep">·</span>
       <button type="button" id="btn-squad-logout">Trocar de usuário</button>
@@ -833,6 +836,48 @@ select:focus{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
       <div class="modal-foot">
         <button type="button" class="btn" id="btn-pass-cancel">Cancelar</button>
         <button type="button" class="btn btn-primary" id="btn-pass-do">Salvar nova senha</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal cadastrar usuário -->
+<div class="overlay" id="overlay-users" data-od-id="modal-users">
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="users-title">
+    <div class="modal-head">
+      <div>
+        <h2 id="users-title">Cadastrar usuário</h2>
+        <div class="hint">Crie o acesso para um novo PO</div>
+      </div>
+      <button class="btn-icon" id="btn-users-close" aria-label="Fechar">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--muted)" stroke-width="1.8" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg>
+      </button>
+    </div>
+    <div class="modal-body">
+      <div class="form-grid">
+        <div class="fg" data-od-id="field-user-name">
+          <label for="user-name">Nome completo</label>
+          <input type="text" id="user-name" placeholder="Ex.: Maria Silva">
+        </div>
+        <div class="fg" data-od-id="field-user-username">
+          <label for="user-username">Usuário (login)</label>
+          <input type="text" id="user-username" placeholder="ex.: maria">
+        </div>
+        <div class="fg" data-od-id="field-user-pass">
+          <label for="user-pass">Senha</label>
+          <input type="password" id="user-pass" autocomplete="new-password">
+        </div>
+        <div class="fg" data-od-id="field-user-pass2">
+          <label for="user-pass2">Confirmar senha</label>
+          <input type="password" id="user-pass2" autocomplete="new-password">
+        </div>
+      </div>
+      <div class="opt-title" style="margin-top:14px">Squads com acesso</div>
+      <div class="squads-users" id="user-squads"></div>
+      <div class="modal-err" id="users-err"></div>
+      <div class="modal-foot">
+        <button type="button" class="btn" id="btn-users-cancel">Cancelar</button>
+        <button type="button" class="btn btn-primary" id="btn-user-save">Cadastrar</button>
       </div>
     </div>
   </div>
@@ -1187,6 +1232,7 @@ var supabase = null;
     hideLogin();
     buildSquadSelect();
     document.getElementById("user-name").textContent = session.name || session.username;
+    document.getElementById("btn-user-open").style.display = session && String(session.username || "").toLowerCase() === "aline" ? "inline-block" : "none";
     var allowed = session.squads && session.squads.length ? session.squads : SQUADS;
     if (allowed.length === 1){
       document.getElementById("f-squad").value = allowed[0];
@@ -2111,6 +2157,60 @@ var supabase = null;
       document.getElementById("squads-err").textContent = err.message;
     });
   });
+
+  /* ---------- Cadastrar usuário (admin: aline) ---------- */
+  function openUsers(){
+    document.getElementById("overlay-users").classList.add("open");
+    document.getElementById("users-err").textContent = "";
+    document.getElementById("user-name").value = "";
+    document.getElementById("user-username").value = "";
+    document.getElementById("user-pass").value = "";
+    document.getElementById("user-pass2").value = "";
+    document.getElementById("user-squads").innerHTML = "Carregando squads…";
+    fetch("api/squads", { headers: { Authorization: "Bearer " + (session ? session.token : ""), Accept: "application/json" } })
+      .then(function(r){ if (!r.ok) throw new Error("Falha ao carregar squads."); return r.json(); })
+      .then(function(data){
+        document.getElementById("user-squads").innerHTML = data.squads.length
+          ? data.squads.map(function(s){ return '<label><input type="checkbox" value="' + esc(s) + '"> ' + esc(s) + '</label>'; }).join("")
+          : '<span class="squads-none">Nenhum squad criado. Crie antes em "Gerenciar squads".</span>';
+      })
+      .catch(function(err){ document.getElementById("users-err").textContent = err.message; });
+  }
+  function closeUsers(){ document.getElementById("overlay-users").classList.remove("open"); }
+  document.getElementById("btn-user-open").addEventListener("click", openUsers);
+  document.getElementById("btn-users-close").addEventListener("click", closeUsers);
+  document.getElementById("btn-users-cancel").addEventListener("click", closeUsers);
+  document.getElementById("overlay-users").addEventListener("click", function(e){ if (e.target === this) closeUsers(); });
+  document.getElementById("btn-user-save").addEventListener("click", function(){
+    var name = document.getElementById("user-name").value.trim();
+    var username = document.getElementById("user-username").value.trim().toLowerCase();
+    var pass = document.getElementById("user-pass").value;
+    var pass2 = document.getElementById("user-pass2").value;
+    if (!name || !username || !pass){ document.getElementById("users-err").textContent = "Informe nome, usuário e senha."; return; }
+    if (!/^[a-z0-9._-]+$/.test(username)){ document.getElementById("users-err").textContent = "Usuário: só letras minúsculas, números, ponto, hífen ou underline."; return; }
+    if (pass.length < 6){ document.getElementById("users-err").textContent = "A senha deve ter ao menos 6 caracteres."; return; }
+    if (pass !== pass2){ document.getElementById("users-err").textContent = "As senhas não coincidem."; return; }
+    var squads = [];
+    document.querySelectorAll("#user-squads input:checked").forEach(function(c){ squads.push(c.value); });
+    fetch("api/users", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: "Bearer " + (session ? session.token : ""), Accept: "application/json" },
+      body: JSON.stringify({ name: name, username: username, password: pass, squads: squads })
+    }).then(function(r){
+      return r.text().then(function(txt){
+        var d = null;
+        try { d = JSON.parse(txt); } catch(e) {}
+        if (!r.ok) throw new Error((d && d.error) || "Falha ao cadastrar o usuário.");
+        return d;
+      });
+    }).then(function(){
+      closeUsers();
+      showToast("Usuário \"" + username + "\" cadastrado.", "");
+    }).catch(function(err){
+      document.getElementById("users-err").textContent = err.message;
+    });
+  });
+
   document.getElementById("squad-screen").addEventListener("click", function(e){
     var btn = e.target.closest("[data-squad]");
     if (btn){
