@@ -1696,14 +1696,14 @@ var supabase = null;
   /* ---------- Importar Excel / CSV ---------- */
   var importItems = [];
   var HEADER_FIELDS = {
-    numero: ["n","no","num","numero","iditem","nitem","nitem","id"],
-    nome: ["nome","nomeitem","item","titulo","descricao","userstory","us","itemdedesenvolvimento"],
-    po: ["po","poresponsavel","responsavel"],
+    numero: ["n","no","num","numero","id","workitemid","iditem"],
+    nome: ["nome","nomeitem","item","titulo","title","descricao","userstory","us","itemdedesenvolvimento"],
+    po: ["po","poresponsavel","responsavel","assignedto","assignee"],
     pri: ["prioridade","nivel","urgencia","prioridadeurgencia"],
     prazo: ["prazo","prazoparaconclusao","dataprazo","datalimite","deadline","data"],
-    status: ["status","situacao","estado"],
+    status: ["status","situacao","estado","state"],
     area: ["area","modulo"],
-    tipo: ["tipo","categoria","type","classe"]
+    tipo: ["tipo","categoria","type","classe","workitemtype"]
   };
   function normHeader(h){
     return String(h||"").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,"").replace(/[^a-z0-9]/g,"").trim();
