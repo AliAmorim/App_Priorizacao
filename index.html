@@ -173,7 +173,7 @@ select:focus{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
 }
 .thead,.row{
   display:grid;
-  grid-template-columns:76px 92px minmax(0,1fr) 150px 104px 128px 132px 78px;
+  grid-template-columns:76px 92px minmax(0,1fr) 108px 150px 104px 128px 132px 78px;
   gap:12px;align-items:center;
 }
 .thead{
@@ -219,6 +219,7 @@ select:focus{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
 .tag.tipo-user-story{color:color-mix(in oklch, var(--success) 80%, oklch(0.3 0.05 258));border-color:color-mix(in oklch, var(--success) 32%, transparent);background:var(--success-soft)}
 .tag.tipo-bug{color:var(--danger);border-color:color-mix(in oklch, var(--danger) 32%, transparent);background:var(--danger-soft)}
 .c-name .sub{font-size:12.5px;color:var(--muted);margin-top:1px}
+.c-tipo .tag{margin-left:0}
 .c-po{font-size:13.5px;color:var(--fg)}
 .c-po small{display:block;font-size:11.5px;color:var(--muted);letter-spacing:0.01em}
 
@@ -450,7 +451,7 @@ select:focus{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
 /* ---------- Responsive ---------- */
 @media(max-width:1020px){
   .summary{grid-template-columns:repeat(2,1fr)}
-  .thead,.row{grid-template-columns:64px 84px minmax(0,1fr) 96px 64px}
+  .thead,.row{grid-template-columns:56px 84px minmax(0,1fr) 92px 92px 64px}
   .t-po,.t-due,.t-status,.c-po,.c-due,.c-status{display:none}
 }
 @media(max-width:760px){
@@ -474,7 +475,8 @@ select:focus{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
   .c-po small{display:none}
   .c-due{display:block;grid-column:2;grid-row:3;text-align:right;align-self:center}
   .c-status{display:inline-flex;grid-column:1;grid-row:4}
-  .c-actions{grid-column:2/4;grid-row:4}
+  .c-tipo{grid-column:2;grid-row:4}
+  .c-actions{grid-column:3;grid-row:4}
   .summary{grid-template-columns:repeat(2,1fr);gap:10px}
   .stat{padding:13px 14px}
   .stat .v{font-size:28px}
@@ -652,6 +654,7 @@ select:focus{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
       <span class="t-ord" title="Arraste as linhas para reordenar">Ordem</span>
       <span class="t-num">Nº do item</span>
       <span class="t-name">Item</span>
+      <span class="t-tipo">Tipo</span>
       <span class="t-po">PO responsável</span>
       <span class="t-pri">Prioridade</span>
       <span class="t-due">Prazo</span>
@@ -936,7 +939,9 @@ var supabase = null;
     fillFormSelect("in-pri", options.prioridades, it ? it.pri : (options.prioridades[0] || "Média"));
     fillFormSelect("in-status", options.status, it ? it.status : (options.status[0] || "Backlog"));
     fillFormSelect("in-area", options.areas, it ? it.area : "", "—");
-    fillFormSelect("in-po", options.pos, it ? it.po : "", "—");
+    var poCur = it ? it.po : "";
+    if (poCur && options.pos.indexOf(poCur) < 0) poCur = "";
+    fillFormSelect("in-po", options.pos, poCur, "—");
     fillFormSelect("in-tipo", TIPOS, it ? it.tipo : "User Story");
   }
 
@@ -1259,8 +1264,8 @@ var supabase = null;
       '</span>' +
       '<span class="c-num">' + esc(it.numero) + '</span>' +
       '<div class="c-name"><div class="t">' + esc(it.nome) +
-        '<span class="tag tipo-chip tipo-' + clsName(it.tipo || "User Story") + '">' + esc(it.tipo || "User Story") + '</span>' +
         (it.area ? '<span class="tag">' + esc(it.area) + '</span>' : '') + '</div></div>' +
+      '<span class="c-tipo"><span class="tag tipo-chip tipo-' + clsName(it.tipo || "User Story") + '">' + esc(it.tipo || "User Story") + '</span></span>' +
       '<span class="c-po">' + (it.po ? esc(it.po) : "—") + '</span>' +
       '<span class="c-pri badge badge-p-' + clsName(it.pri) + '" data-od-id="pri-' + esc(it.numero.toLowerCase()) + '">' + esc(it.pri) + '</span>' +
       '<span class="c-due ' + dueClass(it) + '">' + fmtDate(it.prazo) + (rel ? '<span class="rel">' + esc(rel) + '</span>' : '') + '</span>' +
@@ -1674,6 +1679,22 @@ var supabase = null;
     if (s.indexOf("ticket") >= 0 || s.indexOf("chamado") >= 0) return "Ticket";
     return "User Story";
   }
+  function matchPoOption(fullName){
+    var n = String(fullName || "").trim().toLowerCase();
+    if (!n) return "";
+    var best = "";
+    for (var i = 0; i < options.pos.length; i++){
+      var o = String(options.pos[i] || "").trim();
+      if (!o) continue;
+      var ol = o.toLowerCase();
+      // Casa se o nome completo começa com a opção (resumo = 1º nome + 1º sobrenome),
+      // se é igual, ou se a opção começa com o nome. Pega a opção mais específica.
+      if (n === ol || n.indexOf(ol) === 0 || ol.indexOf(n) === 0){
+        if (o.length > best.length) best = o;
+      }
+    }
+    return best;
+  }
   function parseImportRow(row){
     var fields = {};
     Object.keys(row).forEach(function(h){
@@ -1683,10 +1704,11 @@ var supabase = null;
     if (!fields.nome) return null;
     if (/^—+$/.test(fields.nome) || /^nenhum/i.test(fields.nome)) return null;
     var defPri = options.prioridades.indexOf("Média") >= 0 ? "Média" : (options.prioridades[0] || "Média");
+    var poVal = matchPoOption(fields.po);
     return {
       numero: fields.numero || "",
       nome: fields.nome,
-      po: fields.po,
+      po: poVal,
       pri: fields.pri || defPri,
       status: fields.status || "Backlog",
       area: fields.area || detectArea(fields.nome, options.areas),
