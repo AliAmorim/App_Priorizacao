@@ -7,6 +7,8 @@
       "api/config.js",
       "api/login.js",
       "api/state.js",
+      "id-t-tulo-8-_1_.csv",
+      "id-t-tulo-8.csv",
       "image.png",
       "lib/auth.js",
       "lib/db.js",
@@ -28,6 +30,8 @@
       "lib/db.js"
     ],
     "assets": [
+      "id-t-tulo-8-_1_.csv",
+      "id-t-tulo-8.csv",
       "image.png",
       "package.json",
       "README.md",

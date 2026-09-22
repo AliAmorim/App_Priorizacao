@@ -19,6 +19,7 @@ CREATE TABLE IF NOT EXISTS items (
   prazo TEXT NOT NULL,
   ordem INTEGER NOT NULL,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  tipo TEXT NOT NULL DEFAULT 'User Story',
   PRIMARY KEY (squad, numero)
 );
 

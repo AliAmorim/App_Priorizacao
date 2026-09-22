@@ -14,7 +14,7 @@ This archive is the source of truth for turning the design into production code.
 - HTML screens detected: 1
 - Stylesheets detected: 0
 - Script/component files detected: 5
-- Supporting assets detected: 5
+- Supporting assets detected: 7
 
 ## Responsive contract
 Validate the implementation across this 2025–2026 viewport matrix:
@@ -76,6 +76,8 @@ For responsive web exports, treat these as a modern breakpoint system for one ad
 - `lib/db.js`
 
 ## Assets and supporting files
+- `id-t-tulo-8-_1_.csv`
+- `id-t-tulo-8.csv`
 - `image.png`
 - `package.json`
 - `README.md`
