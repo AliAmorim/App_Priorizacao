@@ -345,6 +345,15 @@ select:focus{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
 .toast.warn{background:var(--warn);color:oklch(0.2 0.03 258)}
 .toast.danger{background:var(--danger);color:oklch(1 0 0 / 0.97)}
 
+/* ---------- Gerenciar squads ---------- */
+#overlay-squads{z-index:110}
+.fb-sep{color:var(--muted)}
+.squads-list{display:flex;flex-wrap:wrap;gap:8px;margin:12px 0 4px}
+.squads-none{font-size:13px;color:var(--muted)}
+.squads-users{display:flex;flex-direction:column;gap:6px;margin-top:10px}
+.squads-users label{display:flex;align-items:center;gap:8px;font-size:13.5px;color:var(--fg);cursor:pointer}
+.squads-users input{width:16px;height:16px;accent-color:var(--accent)}
+
 /* ---------- Login ---------- */
 .login-overlay{
   position:fixed;inset:0;z-index:100;
@@ -535,6 +544,8 @@ select:focus{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
     </div>
     <div class="squad-options" id="squad-options"></div>
     <div class="login-fallback">
+      <button type="button" id="btn-squads-open">Gerenciar squads</button>
+      <span class="fb-sep">·</span>
       <button type="button" id="btn-squad-logout">Trocar de usuário</button>
     </div>
   </div>
@@ -571,6 +582,9 @@ select:focus{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
     <button class="btn btn-on-ink" id="btn-new" data-od-id="btn-new-item">
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="1.8" stroke-linecap="round"><path d="M12 5v14M5 12h14"></path></svg>
       Novo item
+    </button>
+    <button class="btn-icon btn-logout" id="btn-password" title="Alterar senha" aria-label="Alterar senha">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--on-ink-muted)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>
     </button>
     <button class="btn-icon btn-logout" id="btn-logout" data-od-id="btn-logout" title="Sair" aria-label="Sair">
       <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--on-ink-muted)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><path d="M16 17l5-5-5-5"></path><path d="M21 12H9"></path></svg>
@@ -779,6 +793,74 @@ select:focus{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
       <div class="modal-foot">
         <button type="button" class="btn" id="btn-import-cancel">Cancelar</button>
         <button type="button" class="btn btn-primary" id="btn-import-do" disabled>Importar itens</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal alterar senha -->
+<div class="overlay" id="overlay-password" data-od-id="modal-password">
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="pass-title">
+    <div class="modal-head">
+      <div>
+        <h2 id="pass-title">Alterar senha</h2>
+        <div class="hint">Atualize a sua senha de acesso</div>
+      </div>
+      <button class="btn-icon" id="btn-pass-close" aria-label="Fechar">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--muted)" stroke-width="1.8" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg>
+      </button>
+    </div>
+    <div class="modal-body">
+      <div class="form-grid">
+        <div class="fg full" data-od-id="field-pass-user">
+          <label for="pass-user">Usuário</label>
+          <input type="text" id="pass-user" readonly>
+        </div>
+        <div class="fg full" data-od-id="field-pass-current">
+          <label for="pass-current">Senha atual</label>
+          <input type="password" id="pass-current" autocomplete="current-password">
+        </div>
+        <div class="fg" data-od-id="field-pass-new">
+          <label for="pass-new">Nova senha</label>
+          <input type="password" id="pass-new" autocomplete="new-password">
+        </div>
+        <div class="fg" data-od-id="field-pass-confirm">
+          <label for="pass-confirm">Confirmar nova senha</label>
+          <input type="password" id="pass-confirm" autocomplete="new-password">
+        </div>
+      </div>
+      <div class="modal-err" id="pass-err"></div>
+      <div class="modal-foot">
+        <button type="button" class="btn" id="btn-pass-cancel">Cancelar</button>
+        <button type="button" class="btn btn-primary" id="btn-pass-do">Salvar nova senha</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal gerenciar squads -->
+<div class="overlay" id="overlay-squads" data-od-id="modal-squads">
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="squads-title">
+    <div class="modal-head">
+      <div>
+        <h2 id="squads-title">Gerenciar squads</h2>
+        <div class="hint">Crie novos backlogs e atribua aos usuários</div>
+      </div>
+      <button class="btn-icon" id="btn-squads-close" aria-label="Fechar">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--muted)" stroke-width="1.8" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg>
+      </button>
+    </div>
+    <div class="modal-body">
+      <div class="opt-tip">Cada squad é um backlog. Os usuários marcados passam a ver o squad no seletor (reentre ou atualize a página).</div>
+      <div class="squads-list" id="squads-list"></div>
+      <div class="opt-sec">
+        <div class="opt-title">Criar novo squad</div>
+        <div class="opt-add"><input id="in-squad-name" placeholder="Nome do squad (ex.: SED Frequência)"><button type="button" class="btn btn-sm" id="btn-squad-create">Criar</button></div>
+        <div class="squads-users" id="squads-users"></div>
+      </div>
+      <div class="modal-err" id="squads-err"></div>
+      <div class="modal-foot">
+        <button type="button" class="btn" id="btn-squads-cancel">Fechar</button>
       </div>
     </div>
   </div>
@@ -1894,6 +1976,141 @@ var supabase = null;
     }
   });
   document.getElementById("btn-logout").addEventListener("click", doLogout);
+
+  /* ---------- Alterar senha ---------- */
+  function openPassword(){
+    document.getElementById("pass-user").value = session ? (session.username || "") : "";
+    document.getElementById("pass-current").value = "";
+    document.getElementById("pass-new").value = "";
+    document.getElementById("pass-confirm").value = "";
+    document.getElementById("pass-err").textContent = "";
+    document.getElementById("overlay-password").classList.add("open");
+    document.getElementById("pass-current").focus();
+  }
+  function closePassword(){ document.getElementById("overlay-password").classList.remove("open"); }
+  function savePassword(){
+    var user = document.getElementById("pass-user").value.trim();
+    var current = document.getElementById("pass-current").value;
+    var novo = document.getElementById("pass-new").value;
+    var confirm = document.getElementById("pass-confirm").value;
+    if (!current || !novo){ document.getElementById("pass-err").textContent = "Informe a senha atual e a nova senha."; return; }
+    if (novo.length < 6){ document.getElementById("pass-err").textContent = "A nova senha deve ter ao menos 6 caracteres."; return; }
+    if (novo !== confirm){ document.getElementById("pass-err").textContent = "As senhas não coincidem."; return; }
+    fetch("api/password", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Accept: "application/json" },
+      body: JSON.stringify({ username: user, currentPassword: current, newPassword: novo })
+    }).then(function(r){
+      return r.text().then(function(txt){
+        var data = null;
+        try { data = JSON.parse(txt); } catch(e) {}
+        if (!r.ok) throw new Error((data && data.error) || "Não foi possível alterar a senha.");
+        return data;
+      });
+    }).then(function(){
+      closePassword();
+      showToast("Senha alterada com sucesso.", "");
+    }).catch(function(err){
+      document.getElementById("pass-err").textContent = err && err.message ? err.message : "Não foi possível alterar a senha.";
+    });
+  }
+  document.getElementById("btn-password").addEventListener("click", openPassword);
+  document.getElementById("btn-pass-close").addEventListener("click", closePassword);
+  document.getElementById("btn-pass-cancel").addEventListener("click", closePassword);
+  document.getElementById("btn-pass-do").addEventListener("click", savePassword);
+  document.getElementById("overlay-password").addEventListener("click", function(e){ if (e.target === this) closePassword(); });
+
+  /* ---------- Gerenciar squads ---------- */
+  function openSquads(){
+    document.getElementById("overlay-squads").classList.add("open");
+    document.getElementById("squads-err").textContent = "";
+    document.getElementById("in-squad-name").value = "";
+    loadSquadsManager();
+  }
+  function closeSquads(){ document.getElementById("overlay-squads").classList.remove("open"); }
+  function refreshSquadUI(){
+    buildSquadSelect();
+    if (document.getElementById("squad-screen").classList.contains("open")){
+      showSquadPicker(session && session.squads && session.squads.length ? session.squads : SQUADS);
+    }
+  }
+  function loadSquadsManager(){
+    fetch("api/squads", { headers: { Authorization: "Bearer " + (session ? session.token : ""), Accept: "application/json" } })
+      .then(function(r){
+        if (!r.ok) throw new Error("Falha ao carregar os squads.");
+        return r.json();
+      })
+      .then(function(data){
+        var list = document.getElementById("squads-list");
+        list.innerHTML = data.squads.length
+          ? data.squads.map(function(s){
+              return '<span class="chip" data-val="' + esc(s) + '">' +
+                '<span class="chip-label">' + esc(s) + '</span>' +
+                '<button type="button" class="chip-x" data-del-squad="' + esc(s) + '" aria-label="Remover ' + esc(s) + '">' + xSvg + '</button>' +
+              '</span>';
+            }).join("")
+          : '<span class="squads-none">Nenhum squad criado ainda.</span>';
+        document.getElementById("squads-users").innerHTML =
+          '<div class="opt-title" style="margin-bottom:6px">Atribuir a:</div>' +
+          data.users.map(function(u){
+            var checked = u.username === (session && session.username) ? " checked" : "";
+            return '<label><input type="checkbox" value="' + esc(u.username) + '"' + checked + '> ' + esc(u.name || u.username) + '</label>';
+          }).join("");
+      })
+      .catch(function(err){ document.getElementById("squads-err").textContent = err.message; });
+  }
+  document.getElementById("btn-squads-open").addEventListener("click", openSquads);
+  document.getElementById("btn-squads-close").addEventListener("click", closeSquads);
+  document.getElementById("btn-squads-cancel").addEventListener("click", closeSquads);
+  document.getElementById("overlay-squads").addEventListener("click", function(e){ if (e.target === this) closeSquads(); });
+  document.getElementById("btn-squad-create").addEventListener("click", function(){
+    var squad = document.getElementById("in-squad-name").value.trim();
+    if (!squad){ document.getElementById("squads-err").textContent = "Informe o nome do squad."; return; }
+    var usernames = [];
+    document.querySelectorAll("#squads-users input:checked").forEach(function(c){ usernames.push(c.value); });
+    fetch("api/squads", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: "Bearer " + (session ? session.token : ""), Accept: "application/json" },
+      body: JSON.stringify({ squad: squad, usernames: usernames })
+    }).then(function(r){
+      return r.text().then(function(txt){
+        var d = null;
+        try { d = JSON.parse(txt); } catch(e) {}
+        if (!r.ok) throw new Error((d && d.error) || "Falha ao criar o squad.");
+        return d;
+      });
+    }).then(function(){
+      showToast("Squad \"" + squad + "\" criado.", "");
+      var mine = session && usernames.indexOf(session.username) >= 0 && session.squads.indexOf(squad) < 0;
+      if (mine){ session.squads.push(squad); saveSession(); }
+      document.getElementById("in-squad-name").value = "";
+      loadSquadsManager();
+      if (mine) refreshSquadUI();
+    }).catch(function(err){
+      document.getElementById("squads-err").textContent = err.message;
+    });
+  });
+  document.getElementById("squads-list").addEventListener("click", function(e){
+    var btn = e.target.closest("[data-del-squad]");
+    if (!btn) return;
+    var squad = btn.getAttribute("data-del-squad");
+    if (!confirm("Remover o squad \"" + squad + "\" de todos os usuários?")) return;
+    fetch("api/squads?squad=" + encodeURIComponent(squad), {
+      method: "DELETE",
+      headers: { Authorization: "Bearer " + (session ? session.token : ""), Accept: "application/json" }
+    }).then(function(r){
+      if (!r.ok) throw new Error("Falha ao remover o squad.");
+      return r.json();
+    }).then(function(){
+      showToast("Squad \"" + squad + "\" removido.", "");
+      var mine = session && session.squads.indexOf(squad) >= 0;
+      if (mine){ session.squads = session.squads.filter(function(s){ return s !== squad; }); saveSession(); }
+      loadSquadsManager();
+      if (mine) refreshSquadUI();
+    }).catch(function(err){
+      document.getElementById("squads-err").textContent = err.message;
+    });
+  });
   document.getElementById("squad-screen").addEventListener("click", function(e){
     var btn = e.target.closest("[data-squad]");
     if (btn){

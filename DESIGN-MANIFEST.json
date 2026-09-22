@@ -6,6 +6,8 @@
     "all": [
       "api/config.js",
       "api/login.js",
+      "api/password.js",
+      "api/squads.js",
       "api/state.js",
       "id-t-tulo-8-_1_.csv",
       "id-t-tulo-8.csv",
@@ -25,6 +27,8 @@
     "scriptsAndComponents": [
       "api/config.js",
       "api/login.js",
+      "api/password.js",
+      "api/squads.js",
       "api/state.js",
       "lib/auth.js",
       "lib/db.js"
@@ -98,6 +102,8 @@
     "source": [
       "api/config.js",
       "api/login.js",
+      "api/password.js",
+      "api/squads.js",
       "api/state.js",
       "lib/auth.js",
       "lib/db.js"
