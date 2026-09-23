@@ -856,8 +856,8 @@ select:focus{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
     <div class="modal-body">
       <div class="form-grid">
         <div class="fg" data-od-id="field-user-name">
-          <label for="user-name">Nome completo</label>
-          <input type="text" id="user-name" placeholder="Ex.: Maria Silva">
+          <label for="user-fullname">Nome completo</label>
+          <input type="text" id="user-fullname" placeholder="Ex.: Maria Silva">
         </div>
         <div class="fg" data-od-id="field-user-username">
           <label for="user-username">Usuário (login)</label>
@@ -2162,7 +2162,7 @@ var supabase = null;
   function openUsers(){
     document.getElementById("overlay-users").classList.add("open");
     document.getElementById("users-err").textContent = "";
-    document.getElementById("user-name").value = "";
+    document.getElementById("user-fullname").value = "";
     document.getElementById("user-username").value = "";
     document.getElementById("user-pass").value = "";
     document.getElementById("user-pass2").value = "";
@@ -2182,7 +2182,7 @@ var supabase = null;
   document.getElementById("btn-users-cancel").addEventListener("click", closeUsers);
   document.getElementById("overlay-users").addEventListener("click", function(e){ if (e.target === this) closeUsers(); });
   document.getElementById("btn-user-save").addEventListener("click", function(){
-    var name = document.getElementById("user-name").value.trim();
+    var name = document.getElementById("user-fullname").value.trim();
     var username = document.getElementById("user-username").value.trim().toLowerCase();
     var pass = document.getElementById("user-pass").value;
     var pass2 = document.getElementById("user-pass2").value;
