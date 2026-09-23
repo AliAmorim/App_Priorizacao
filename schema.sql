@@ -4,8 +4,12 @@ CREATE TABLE IF NOT EXISTS users (
   username TEXT PRIMARY KEY,
   name TEXT NOT NULL,
   password TEXT NOT NULL,
-  squads JSONB NOT NULL
+  squads JSONB NOT NULL,
+  can_edit BOOLEAN NOT NULL DEFAULT true
 );
+
+-- Para bancos já criados antes desta coluna existir:
+ALTER TABLE users ADD COLUMN IF NOT EXISTS can_edit BOOLEAN NOT NULL DEFAULT true;
 
 -- Itens do backlog, separados por squad
 CREATE TABLE IF NOT EXISTS items (
