@@ -17,7 +17,7 @@ export default async function handler(req, res) {
       }
       const { data: user, error } = await getDb()
         .from('users')
-        .select('username, name, password, squads')
+        .select('username, name, password, squads, can_edit')
         .eq('username', String(username).trim().toLowerCase())
         .maybeSingle();
       if (error) throw new Error(error.message);
@@ -36,7 +36,7 @@ export default async function handler(req, res) {
       const payload = { u: user.username, exp: Date.now() + 7 * 24 * 3600 * 1000 };
       res.status(200).json({
         token: sign(payload),
-        user: { username: user.username, name: user.name, squads: user.squads }
+        user: { username: user.username, name: user.name, squads: user.squads, can_edit: user.can_edit !== false }
       });
       return;
     }
@@ -47,11 +47,11 @@ export default async function handler(req, res) {
       if (!payload) { res.status(401).json({ error: 'Sessão inválida.' }); return; }
       const { data: user } = await getDb()
         .from('users')
-        .select('username, name, squads')
+        .select('username, name, squads, can_edit')
         .eq('username', payload.u)
         .maybeSingle();
       if (!user) { res.status(401).json({ error: 'Sessão inválida.' }); return; }
-      res.status(200).json({ user: { username: user.username, name: user.name, squads: user.squads } });
+      res.status(200).json({ user: { username: user.username, name: user.name, squads: user.squads, can_edit: user.can_edit !== false } });
       return;
     }
 

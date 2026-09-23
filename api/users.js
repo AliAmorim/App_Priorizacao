@@ -1,4 +1,4 @@
-import { getDb } from '../lib/db.js';
+import { getDb, listarUsuarios, atualizarPermissao } from '../lib/db.js';
 import { cors, requireUser, hashPassword, parseBody } from '../lib/auth.js';
 
 const ADMIN_USERNAME = 'aline';
@@ -11,16 +11,25 @@ export default async function handler(req, res) {
     const user = await requireUser(req, res);
     if (!user) return;
     if (user.username !== ADMIN_USERNAME) {
-      res.status(403).json({ error: 'Apenas o administrador pode cadastrar usuários.' });
+      res.status(403).json({ error: 'Apenas o administrador pode gerenciar usuários.' });
       return;
     }
 
+    // GET /api/users → lista os usuários com a permissão atual (editor/visualizador).
+    if (req.method === 'GET') {
+      const users = await listarUsuarios();
+      res.status(200).json({ users });
+      return;
+    }
+
+    // POST /api/users → cadastra um usuário (canEdit opcional, padrão true).
     if (req.method === 'POST') {
       const body = parseBody(req);
       const username = String(body.username || '').trim().toLowerCase();
       const name = String(body.name || '').trim();
       const password = String(body.password || '');
       const squads = Array.isArray(body.squads) ? body.squads.filter(Boolean) : [];
+      const canEdit = body.canEdit === undefined ? true : !!body.canEdit;
 
       if (!username || !name || !password) {
         res.status(400).json({ error: 'Informe nome, usuário e senha.' });
@@ -43,14 +52,28 @@ export default async function handler(req, res) {
 
       const { error: insErr } = await getDb()
         .from('users')
-        .insert({ username, name, password: hashPassword(password), squads });
+        .insert({ username, name, password: hashPassword(password), squads, can_edit: canEdit });
       if (insErr) throw new Error(insErr.message);
 
       res.status(200).json({ ok: true, username });
       return;
     }
 
-    res.setHeader('Allow', ['POST']);
+    // PUT /api/users → altera a permissão de um usuário ({ username, canEdit }).
+    if (req.method === 'PUT') {
+      const body = parseBody(req);
+      const username = String(body.username || '').trim().toLowerCase();
+      if (!username) { res.status(400).json({ error: 'Informe o usuário.' }); return; }
+      if (username === ADMIN_USERNAME) {
+        res.status(400).json({ error: 'O administrador não pode perder a permissão de edição.' });
+        return;
+      }
+      const result = await atualizarPermissao(username, !!body.canEdit);
+      res.status(200).json(result);
+      return;
+    }
+
+    res.setHeader('Allow', ['GET', 'POST', 'PUT']);
     res.status(405).json({ error: 'Método não permitido' });
   } catch (err) {
     var msg = /does not exist/.test(err.message || '')

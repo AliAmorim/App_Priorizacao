@@ -24,6 +24,7 @@ export default async function handler(req, res) {
 
     // Cria um squad e atribui aos usuários informados.
     if (req.method === 'POST') {
+      if (user.can_edit === false) { res.status(403).json({ error: 'Seu usuário é somente visualização — não pode gerenciar squads.' }); return; }
       const body = parseBody(req);
       const squad = String(body.squad || '').trim();
       const usernames = Array.isArray(body.usernames) ? body.usernames : [];
@@ -45,6 +46,7 @@ export default async function handler(req, res) {
 
     // Remove um squad de todos os usuários.
     if (req.method === 'DELETE') {
+      if (user.can_edit === false) { res.status(403).json({ error: 'Seu usuário é somente visualização — não pode gerenciar squads.' }); return; }
       const squad = String(req.query.squad || '').trim();
       if (!squad) { res.status(400).json({ error: 'Informe o squad.' }); return; }
       const { data: users, error } = await getDb().from('users').select('username, squads');

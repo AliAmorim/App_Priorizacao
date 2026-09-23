@@ -14,6 +14,7 @@ export default async function handler(req, res) {
     const squad = String(isWrite ? (body.squad || req.query.squad) : req.query.squad || '').trim();
     if (!squad) { res.status(400).json({ error: 'Informe o squad.' }); return; }
     if (!(user.squads || []).includes(squad)) { res.status(403).json({ error: 'Sem acesso a este squad.' }); return; }
+    if (isWrite && user.can_edit === false) { res.status(403).json({ error: 'Seu usuário é somente visualização — não pode editar.' }); return; }
 
     // GET /api/state?squad=... → busca (SELECT) as user stories e opções do squad.
     if (req.method === 'GET') {
