@@ -108,6 +108,9 @@ input,select{font-family:inherit;color:var(--fg)}
 }
 .btn-icon:hover{background:var(--surface-2);color:var(--fg)}
 .btn-icon.danger:hover{color:var(--danger);background:var(--danger-soft)}
+.btn-icon.act-block{color:var(--muted)}
+.btn-icon.act-block:hover{color:var(--danger);background:var(--danger-soft)}
+.btn-icon.act-block.is-blocked{color:var(--danger)}
 .btn-armed{background:var(--danger);border-color:var(--danger);color:oklch(1 0 0 / 0.97)}
 .btn-armed:hover{background:var(--danger)}
 
@@ -193,6 +196,9 @@ select:focus{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
 .row.drag-below{box-shadow:inset 0 -2px 0 var(--accent)}
 .row.done{background:oklch(0.96 0.012 152 / 0.4)}
 .row.done .c-name .t{color:var(--muted);text-decoration:line-through}
+.row.impedido{background:var(--danger-soft)}
+.row.impedido:hover{background:color-mix(in oklch, var(--danger-soft) 72%, var(--bg))}
+.row.impedido .c-name .t{color:var(--danger)}
 .c-num{font-family:var(--font-mono);font-size:12.5px;font-weight:600;color:var(--muted)}
 .c-ord{display:flex;align-items:center;gap:8px;cursor:grab;touch-action:none}
 .c-ord .o-grip{color:var(--muted);display:grid;place-items:center;flex:none}
@@ -218,6 +224,7 @@ select:focus{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
 .tag.tipo-ticket{color:color-mix(in oklch, var(--accent) 85%, oklch(0.3 0.05 258));border-color:color-mix(in oklch, var(--accent) 32%, transparent);background:var(--accent-soft)}
 .tag.tipo-user-story{color:color-mix(in oklch, var(--success) 80%, oklch(0.3 0.05 258));border-color:color-mix(in oklch, var(--success) 32%, transparent);background:var(--success-soft)}
 .tag.tipo-bug{color:var(--danger);border-color:color-mix(in oklch, var(--danger) 32%, transparent);background:var(--danger-soft)}
+.tag.tag-block{color:var(--danger);border-color:color-mix(in oklch, var(--danger) 32%, transparent);background:var(--danger-soft)}
 .c-name .sub{font-size:12.5px;color:var(--muted);margin-top:1px}
 .c-tipo .tag{margin-left:0}
 .c-po{font-size:13.5px;color:var(--fg)}
@@ -358,11 +365,19 @@ select:focus{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
 /* ---------- Permissões (usuários) ---------- */
 .ro-badge{font-size:11px;letter-spacing:0.06em;text-transform:uppercase;font-weight:550;color:oklch(0.85 0.06 75);border:1px solid oklch(1 0 0 / 0.22);background:oklch(1 0 0 / 0.08);border-radius:999px;padding:4px 10px;white-space:nowrap}
 .users-list{display:flex;flex-direction:column;gap:6px;margin-top:10px;max-height:220px;overflow:auto}
-.users-row{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:8px 10px;border:1px solid var(--border);border-radius:8px;background:var(--surface)}
+.users-row{display:flex;flex-direction:column;gap:8px;padding:10px 12px;border:1px solid var(--border);border-radius:8px;background:var(--surface)}
 .ur-name{display:flex;flex-direction:column;font-size:13.5px;color:var(--fg)}
 .ur-user{font-size:11.5px;color:var(--muted);font-family:var(--font-mono)}
 .users-row select{font-size:13px;padding:6px 8px;border:1px solid var(--border);border-radius:6px;background:var(--bg);color:var(--fg)}
 .users-row select:disabled{opacity:0.6;cursor:not-allowed}
+.ur-head{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.ur-actions{display:flex;align-items:center;gap:6px}
+.ur-squads{display:flex;flex-wrap:wrap;align-items:center;gap:6px}
+.ur-sq-label{font-size:11.5px;color:var(--muted)}
+.chip-sm{font-size:12px;padding:3px 5px 3px 10px}
+.ur-add{font-size:12.5px;padding:4px 6px;border:1px solid var(--border);border-radius:6px;background:var(--bg);color:var(--fg)}
+.ur-allassigned{font-size:11.5px;color:var(--muted)}
+.users-row .btn-icon:disabled{opacity:0.35;cursor:not-allowed}
 .read-only .foot-left > span:not(.conn){display:none}
 
 /* ---------- Login ---------- */
@@ -858,14 +873,14 @@ select:focus{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
     <div class="modal-head">
       <div>
         <h2 id="users-title">Usuários</h2>
-        <div class="hint">Gerencie permissões e cadastre novos acessos</div>
+        <div class="hint">Gerencie permissões, squads e exclua usuários</div>
       </div>
       <button class="btn-icon" id="btn-users-close" aria-label="Fechar">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--muted)" stroke-width="1.8" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg>
       </button>
     </div>
     <div class="modal-body">
-      <div class="opt-title" style="margin-top:0">Permissões de acesso</div>
+      <div class="opt-title" style="margin-top:0">Usuários cadastrados</div>
       <div class="users-list" id="users-list">Carregando…</div>
       <div class="opt-title" style="margin-top:18px">Cadastrar novo usuário</div>
       <div class="form-grid">
@@ -1045,7 +1060,15 @@ var supabase = null;
   var items, filter = { q:"", pri:"", po:"", status:"", tipo:"", sort:"ordem" };
   var editing = null, armed = null, armTimer = null;
 
-  function renumber(){ items.forEach(function(it, i){ it.ordem = i + 1; }); }
+  function isDone(it){ return !!(it && it.status === "Concluído"); }
+  // Só os itens ativos entram na priorização (1, 2, 3…). Os concluídos vão para o fim
+  // e não recebem número — por isso ficam com ordem acima da dos ativos.
+  function renumber(){
+    var ativos = items.filter(function(it){ return !isDone(it); });
+    ativos.forEach(function(it, i){ it.ordem = i + 1; });
+    var concluidos = items.filter(isDone);
+    concluidos.forEach(function(it, i){ it.ordem = ativos.length + i + 1; });
+  }
 
   function saveOpts(){
     if (isViewer()) return;
@@ -1312,7 +1335,7 @@ var supabase = null;
       render();
       return;
     }
-    var pItems = supabase.from("items").select("numero,nome,po,pri,status,area,prazo,ordem,tipo").eq("squad", squad).order("ordem");
+    var pItems = supabase.from("items").select("numero,nome,po,pri,status,area,prazo,ordem,tipo,impedido").eq("squad", squad).order("ordem");
     var pOpts = supabase.from("app_options").select("data").eq("squad", squad).maybeSingle();
     Promise.all([pItems, pOpts]).then(function(res){
       var it = res[0], op = res[1];
@@ -1322,7 +1345,7 @@ var supabase = null;
       ["prioridades","status","pos","areas"].forEach(function(k){
         if (!Array.isArray(options[k]) || options[k].length === 0) options[k] = DEFAULT_OPTIONS[k].slice();
       });
-      items.forEach(function(x, i){ if (!x.ordem) x.ordem = i + 1; });
+      renumber();
       ensurePOFilter();
       buildFilterOptions();
       render();
@@ -1354,7 +1377,7 @@ var supabase = null;
         if (d.error) throw d.error;
         if (!items.length) return null;
         var rows = items.map(function(r){
-          return { squad: currentSquad, numero: r.numero, nome: r.nome, po: r.po, pri: r.pri, status: r.status, area: r.area, prazo: r.prazo || "", ordem: r.ordem, tipo: r.tipo || "User Story" };
+          return { squad: currentSquad, numero: r.numero, nome: r.nome, po: r.po, pri: r.pri, status: r.status, area: r.area, prazo: r.prazo || "", ordem: r.ordem, tipo: r.tipo || "User Story", impedido: !!r.impedido };
         });
         return supabase.from("items").insert(rows);
       })
@@ -1417,25 +1440,39 @@ var supabase = null;
   function statusCls(s){ return "st-" + clsName(s); }
 
   function rowHTML(it){
-    var cls = it.status === "Concluído" ? " done" : "";
+    var done = isDone(it);
+    var blocked = !!(it.impedido && !done);
+    var cls = (done ? " done" : "") + (blocked ? " impedido" : "");
     var rel = relLabel(it);
     var viewer = isViewer();
-    var ordCell = viewer
-      ? '<span class="c-ord"><span class="o-num">' + it.ordem + '</span></span>'
-      : '<span class="c-ord">' +
+    var ordCell;
+    if (viewer || done){
+      ordCell = '<span class="c-ord"><span class="o-num">' + (done ? "—" : it.ordem) + '</span></span>';
+    } else {
+      var _ativos = items.filter(function(x){ return !isDone(x); });
+      var _ai = _ativos.indexOf(it);
+      var _canUp = _ai > 0;
+      var _canDown = _ai >= 0 && _ai < _ativos.length - 1;
+      ordCell = '<span class="c-ord">' +
           '<span class="o-grip" title="Arraste para reordenar" aria-hidden="true"><svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" stroke="none"><circle cx="8" cy="5" r="1.4"/><circle cx="16" cy="5" r="1.4"/><circle cx="8" cy="12" r="1.4"/><circle cx="16" cy="12" r="1.4"/><circle cx="8" cy="19" r="1.4"/><circle cx="16" cy="19" r="1.4"/></svg></span>' +
           '<span class="o-num">' + it.ordem + '</span>' +
           '<span class="o-move">' +
-            '<button data-act="up" data-id="' + esc(it.numero) + '" aria-label="Mover ' + esc(it.numero) + ' para cima" ' + (it.ordem <= 1 ? "disabled" : "") + '>' +
+            '<button data-act="up" data-id="' + esc(it.numero) + '" aria-label="Mover ' + esc(it.numero) + ' para cima" ' + (_canUp ? "" : "disabled") + '>' +
               '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 14l6-6 6 6"/></svg>' +
             '</button>' +
-            '<button data-act="down" data-id="' + esc(it.numero) + '" aria-label="Mover ' + esc(it.numero) + ' para baixo" ' + (it.ordem >= items.length ? "disabled" : "") + '>' +
+            '<button data-act="down" data-id="' + esc(it.numero) + '" aria-label="Mover ' + esc(it.numero) + ' para baixo" ' + (_canDown ? "" : "disabled") + '>' +
               '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 10l6 6 6-6"/></svg>' +
             '</button>' +
           '</span>' +
         '</span>';
+    }
+    var blockBtn = (viewer || done) ? '' :
+      '<button class="btn-icon act-block' + (blocked ? ' is-blocked' : '') + '" data-act="block" data-id="' + esc(it.numero) + '" aria-pressed="' + (blocked ? "true" : "false") + '" title="' + (blocked ? "Remover impedimento" : "Marcar como impedido") + '" aria-label="' + (blocked ? "Remover impedimento de " : "Marcar ") + esc(it.numero) + ' como impedido">' +
+        '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M5.6 5.6l12.8 12.8"/></svg>' +
+      '</button>';
     var actCell = viewer ? '' :
       '<div class="c-actions">' +
+        blockBtn +
         '<button class="btn-icon" data-act="edit" data-id="' + esc(it.numero) + '" aria-label="Editar ' + esc(it.numero) + '">' +
           '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--muted)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.8 2.8 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/></svg>' +
         '</button>' +
@@ -1447,6 +1484,7 @@ var supabase = null;
       ordCell +
       '<span class="c-num">' + esc(it.numero) + '</span>' +
       '<div class="c-name"><div class="t">' + esc(it.nome) +
+        (blocked ? '<span class="tag tag-block">Impedido</span>' : '') +
         (it.area ? '<span class="tag">' + esc(it.area) + '</span>' : '') + '</div></div>' +
       '<span class="c-tipo"><span class="tag tipo-chip tipo-' + clsName(it.tipo || "User Story") + '">' + esc(it.tipo || "User Story") + '</span></span>' +
       '<span class="c-po">' + (it.po ? esc(it.po) : "—") + '</span>' +
@@ -1474,6 +1512,9 @@ var supabase = null;
   }
 
   function sortBy(a, b){
+    // Concluídos saem da priorização: vão sempre para o fim, em qualquer ordenação.
+    var fa = isDone(a) ? 1 : 0, fb = isDone(b) ? 1 : 0;
+    if (fa !== fb) return fa - fb;
     if (filter.sort === "num") return b.numero.localeCompare(a.numero);
     if (filter.sort === "ordem") return a.ordem - b.ordem;
     var pa = priScore(a.pri), pb = priScore(b.pri);
@@ -1576,7 +1617,8 @@ var supabase = null;
         status: document.getElementById("in-status").value,
         area: document.getElementById("in-area").value,
         prazo: prazo,
-        tipo: document.getElementById("in-tipo").value
+        tipo: document.getElementById("in-tipo").value,
+        impedido: editing ? !!editing.impedido : false
       };
       if (editing){
         var i = items.indexOf(editing);
@@ -1632,10 +1674,22 @@ var supabase = null;
       var idx = items.findIndex(function(x){ return x.numero === id; });
       var t = act === "up" ? idx - 1 : idx + 1;
       if (idx < 0 || t < 0 || t >= items.length) return;
+      if (isDone(items[idx]) || isDone(items[t])) return;
       var tmp = items[idx]; items[idx] = items[t]; items[t] = tmp;
       renumber();
       save();
       render();
+      return;
+    }
+    if (act === "block"){
+      disarm();
+      var bit = items.find(function(x){ return x.numero === id; });
+      if (bit){
+        bit.impedido = !bit.impedido;
+        save();
+        render();
+        showToast(bit.impedido ? "Item " + bit.numero + " marcado como impedido." : "Impedimento removido de " + bit.numero + ".", bit.impedido ? "danger" : "");
+      }
       return;
     }
     if (act === "edit"){
@@ -1700,6 +1754,7 @@ var supabase = null;
     if (filter.sort !== "ordem") return;
     var row = ord.closest(".row");
     if (!row) return;
+    if (row.classList.contains("done")) return;
     dragState = { row: row, id: row.getAttribute("data-id") };
     row.classList.add("dragging");
     ord.setPointerCapture(e.pointerId);
@@ -1711,6 +1766,7 @@ var supabase = null;
     var under = document.elementFromPoint(e.clientX, e.clientY);
     var target = under ? under.closest(".row") : null;
     if (!target || target === dragState.row) return;
+    if (target.classList.contains("done")) return;
     var rect = target.getBoundingClientRect();
     var before = e.clientY < rect.top + rect.height / 2;
     clearDragMarks();
@@ -1747,7 +1803,7 @@ var supabase = null;
     var visible = items.filter(matches).slice().sort(sortBy);
     return visible.map(function(it){
       return {
-        "Ordem": it.ordem,
+        "Ordem": isDone(it) ? "" : it.ordem,
         "Nº do item": it.numero,
         "Nome do item": it.nome,
         "Tipo": it.tipo || "User Story",
@@ -2219,17 +2275,37 @@ var supabase = null;
     document.getElementById("user-pass2").value = "";
     document.getElementById("user-canedit").value = "true";
     document.getElementById("user-squads").innerHTML = "Carregando squads…";
-    loadUsersManager();
+    document.getElementById("users-list").innerHTML = "Carregando…";
     fetch("api/squads", { headers: { Authorization: "Bearer " + (session ? session.token : ""), Accept: "application/json" } })
       .then(function(r){ if (!r.ok) throw new Error("Falha ao carregar squads."); return r.json(); })
       .then(function(data){
-        document.getElementById("user-squads").innerHTML = data.squads.length
-          ? data.squads.map(function(s){ return '<label><input type="checkbox" value="' + esc(s) + '"> ' + esc(s) + '</label>'; }).join("")
+        allSquads = data.squads || [];
+        document.getElementById("user-squads").innerHTML = allSquads.length
+          ? allSquads.map(function(s){ return '<label><input type="checkbox" value="' + esc(s) + '"> ' + esc(s) + '</label>'; }).join("")
           : '<span class="squads-none">Nenhum squad criado. Crie antes em "Gerenciar squads".</span>';
+        loadUsersManager();
       })
-      .catch(function(err){ document.getElementById("users-err").textContent = err.message; });
+      .catch(function(err){ document.getElementById("users-err").textContent = err.message; loadUsersManager(); });
   }
   function closeUsers(){ document.getElementById("overlay-users").classList.remove("open"); }
+
+  var allSquads = [];
+  var usersCache = {};
+
+  function putUser(payload){
+    return fetch("api/users", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json", Authorization: "Bearer " + (session ? session.token : ""), Accept: "application/json" },
+      body: JSON.stringify(payload)
+    }).then(function(r){
+      return r.text().then(function(txt){
+        var d = null;
+        try { d = JSON.parse(txt); } catch(e2) {}
+        if (!r.ok) throw new Error((d && d.error) || "Falha ao atualizar o usuário.");
+        return d;
+      });
+    });
+  }
 
   function loadUsersManager(){
     var box = document.getElementById("users-list");
@@ -2239,44 +2315,135 @@ var supabase = null;
       .then(function(r){ if (!r.ok) throw new Error("Falha ao carregar usuários."); return r.json(); })
       .then(function(data){
         var users = data.users || [];
+        usersCache = {};
         box.innerHTML = users.map(function(u){
-          var isAdminRow = String(u.username).toLowerCase() === "aline";
+          var uname = String(u.username);
+          var isAdminRow = uname.toLowerCase() === "aline";
           var sel = u.can_edit === false ? "false" : "true";
-          return '<div class="users-row">' +
-            '<span class="ur-name">' + esc(u.name || u.username) + '<span class="ur-user">@' + esc(u.username) + '</span></span>' +
-            '<select data-perm-user="' + esc(u.username) + '"' + (isAdminRow ? ' disabled title="O administrador sempre pode editar"' : '') + '>' +
-              '<option value="true"' + (sel === "true" ? " selected" : "") + '>Pode editar</option>' +
-              '<option value="false"' + (sel === "false" ? " selected" : "") + '>Somente visualizar</option>' +
-            '</select>' +
+          var mine = (u.squads || []).slice();
+          usersCache[uname] = mine;
+          var chips = mine.length
+            ? mine.map(function(s){
+                return '<span class="chip chip-sm"><span class="chip-label">' + esc(s) + '</span>' +
+                  '<button type="button" class="chip-x" data-rm-squad="' + esc(s) + '" data-user="' + esc(uname) + '" aria-label="Remover ' + esc(s) + '">' + xSvg + '</button></span>';
+              }).join("")
+            : '<span class="squads-none">Nenhum squad</span>';
+          var avail = allSquads.filter(function(s){ return mine.indexOf(s) < 0; });
+          var addSel = avail.length
+            ? '<select class="ur-add" data-add-squad="1" data-user="' + esc(uname) + '" aria-label="Adicionar squad">' +
+                '<option value="">+ Adicionar squad…</option>' +
+                avail.map(function(s){ return '<option value="' + esc(s) + '">' + esc(s) + '</option>'; }).join("") +
+              '</select>'
+            : '<span class="ur-allassigned">Todos os squads atribuídos</span>';
+          return '<div class="users-row" data-user-row="' + esc(uname) + '">' +
+            '<div class="ur-head">' +
+              '<span class="ur-name">' + esc(u.name || uname) + '<span class="ur-user">@' + esc(uname) + '</span></span>' +
+              '<div class="ur-actions">' +
+                '<select data-perm-user="' + esc(uname) + '"' + (isAdminRow ? ' disabled title="O administrador sempre pode editar"' : '') + '>' +
+                  '<option value="true"' + (sel === "true" ? " selected" : "") + '>Pode editar</option>' +
+                  '<option value="false"' + (sel === "false" ? " selected" : "") + '>Somente visualizar</option>' +
+                '</select>' +
+                '<button type="button" class="btn-icon danger" data-del-user="' + esc(uname) + '"' + (isAdminRow ? ' disabled title="O administrador não pode ser excluído"' : '') + ' aria-label="Excluir ' + esc(uname) + '">' + trashIcon() + '</button>' +
+              '</div>' +
+            '</div>' +
+            '<div class="ur-squads"><span class="ur-sq-label">Squads:</span>' + chips + addSel + '</div>' +
           '</div>';
         }).join("") || '<span class="squads-none">Nenhum usuário cadastrado.</span>';
       })
       .catch(function(err){ box.innerHTML = '<span class="squads-none">' + esc(err.message) + '</span>'; });
   }
 
-  document.getElementById("users-list").addEventListener("change", function(e){
-    var sel = e.target.closest("[data-perm-user]");
-    if (!sel) return;
-    var username = sel.getAttribute("data-perm-user");
-    var canEdit = sel.value === "true";
-    sel.disabled = true;
-    fetch("api/users", {
-      method: "PUT",
-      headers: { "Content-Type": "application/json", Authorization: "Bearer " + (session ? session.token : ""), Accept: "application/json" },
-      body: JSON.stringify({ username: username, canEdit: canEdit })
+  function afterUserChange(username){
+    if (session && String(session.username).toLowerCase() === String(username).toLowerCase()){
+      refreshSquadUI();
+    }
+    loadUsersManager();
+  }
+
+  function addSquadToUser(username, squad){
+    var arr = (usersCache[username] || []).slice();
+    if (arr.indexOf(squad) < 0) arr.push(squad);
+    return putUser({ username: username, squads: arr }).then(function(){
+      usersCache[username] = arr;
+      if (session && String(session.username).toLowerCase() === username){ session.squads = arr.slice(); saveSession(); }
+      showToast("Squad \"" + squad + "\" adicionado a " + username + ".", "");
+      afterUserChange(username);
+    });
+  }
+
+  function removeSquadFromUser(username, squad){
+    var arr = (usersCache[username] || []).filter(function(s){ return s !== squad; });
+    return putUser({ username: username, squads: arr }).then(function(){
+      usersCache[username] = arr;
+      if (session && String(session.username).toLowerCase() === username){ session.squads = arr.slice(); saveSession(); }
+      showToast("Squad \"" + squad + "\" removido de " + username + ".", "");
+      afterUserChange(username);
+    });
+  }
+
+  function deleteUser(username){
+    if (!confirm("Excluir o usuário \"" + username + "\"? Esta ação não pode ser desfeita.")) return;
+    fetch("api/users?username=" + encodeURIComponent(username), {
+      method: "DELETE",
+      headers: { Authorization: "Bearer " + (session ? session.token : ""), Accept: "application/json" }
     }).then(function(r){
       return r.text().then(function(txt){
         var d = null;
         try { d = JSON.parse(txt); } catch(e2) {}
-        if (!r.ok) throw new Error((d && d.error) || "Falha ao alterar a permissão.");
+        if (!r.ok) throw new Error((d && d.error) || "Falha ao excluir o usuário.");
         return d;
       });
     }).then(function(){
-      showToast("Permissão de \"" + username + "\" atualizada.", "");
-      if (session && String(session.username).toLowerCase() === username){ session.canEdit = canEdit; saveSession(); applyPermissions(); }
-    }).catch(function(err){
-      document.getElementById("users-err").textContent = err.message;
-    }).then(function(){ sel.disabled = false; });
+      showToast("Usuário \"" + username + "\" excluído.", "");
+      loadUsersManager();
+    }).catch(function(err){ document.getElementById("users-err").textContent = err.message; });
+  }
+
+  document.getElementById("users-list").addEventListener("change", function(e){
+    var sel = e.target.closest("[data-perm-user]");
+    if (sel){
+      var username = sel.getAttribute("data-perm-user");
+      var canEdit = sel.value === "true";
+      sel.disabled = true;
+      putUser({ username: username, canEdit: canEdit }).then(function(){
+        showToast("Permissão de \"" + username + "\" atualizada.", "");
+        if (session && String(session.username).toLowerCase() === username){ session.canEdit = canEdit; saveSession(); applyPermissions(); }
+        sel.disabled = false;
+      }).catch(function(err){
+        document.getElementById("users-err").textContent = err.message;
+        sel.disabled = false;
+      });
+      return;
+    }
+    var addSel = e.target.closest("[data-add-squad]");
+    if (addSel){
+      var u2 = addSel.getAttribute("data-user");
+      var squad = addSel.value;
+      if (!squad) return;
+      addSel.disabled = true;
+      addSquadToUser(u2, squad).catch(function(err){
+        document.getElementById("users-err").textContent = err.message;
+        addSel.disabled = false;
+      });
+    }
+  });
+
+  document.getElementById("users-list").addEventListener("click", function(e){
+    var rm = e.target.closest("[data-rm-squad]");
+    if (rm){
+      if (rm.disabled) return;
+      rm.disabled = true;
+      removeSquadFromUser(rm.getAttribute("data-user"), rm.getAttribute("data-rm-squad")).catch(function(err){
+        document.getElementById("users-err").textContent = err.message;
+        rm.disabled = false;
+      });
+      return;
+    }
+    var del = e.target.closest("[data-del-user]");
+    if (del){
+      if (del.disabled) return;
+      deleteUser(del.getAttribute("data-del-user"));
+    }
   });
 
   document.getElementById("btn-user-open").addEventListener("click", openUsers);

@@ -24,8 +24,12 @@ CREATE TABLE IF NOT EXISTS items (
   ordem INTEGER NOT NULL,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   tipo TEXT NOT NULL DEFAULT 'User Story',
+  impedido BOOLEAN NOT NULL DEFAULT false,
   PRIMARY KEY (squad, numero)
 );
+
+-- Para bancos já criados antes desta coluna existir:
+ALTER TABLE items ADD COLUMN IF NOT EXISTS impedido BOOLEAN NOT NULL DEFAULT false;
 
 -- Opções dos filtros, por squad (uma linha por squad com os 4 grupos em JSON)
 CREATE TABLE IF NOT EXISTS app_options (

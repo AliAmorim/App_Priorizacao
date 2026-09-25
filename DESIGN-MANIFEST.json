@@ -10,6 +10,7 @@
       "api/squads.js",
       "api/state.js",
       "api/users.js",
+      "guia-banco-supabase-passo-a-passo.md",
       "id-t-tulo-8-_1_.csv",
       "id-t-tulo-8.csv",
       "image.png",
@@ -37,6 +38,7 @@
       "lib/db.js"
     ],
     "assets": [
+      "guia-banco-supabase-passo-a-passo.md",
       "id-t-tulo-8-_1_.csv",
       "id-t-tulo-8.csv",
       "image.png",
