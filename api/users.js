@@ -1,4 +1,4 @@
-import { getDb, listarUsuarios, atualizarPermissao } from '../lib/db.js';
+import { getDb, listarUsuarios, atualizarPermissao, atualizarSquads, removerUsuario } from '../lib/db.js';
 import { cors, requireUser, hashPassword, parseBody } from '../lib/auth.js';
 
 const ADMIN_USERNAME = 'aline';
@@ -59,21 +59,48 @@ export default async function handler(req, res) {
       return;
     }
 
-    // PUT /api/users → altera a permissão de um usuário ({ username, canEdit }).
+    // PUT /api/users → altera permissão ({ username, canEdit }) e/ou squads ({ username, squads }).
     if (req.method === 'PUT') {
       const body = parseBody(req);
       const username = String(body.username || '').trim().toLowerCase();
       if (!username) { res.status(400).json({ error: 'Informe o usuário.' }); return; }
-      if (username === ADMIN_USERNAME) {
-        res.status(400).json({ error: 'O administrador não pode perder a permissão de edição.' });
+
+      const result = { ok: true, username };
+      if (body.canEdit !== undefined) {
+        if (username === ADMIN_USERNAME && !body.canEdit) {
+          res.status(400).json({ error: 'O administrador não pode perder a permissão de edição.' });
+          return;
+        }
+        await atualizarPermissao(username, !!body.canEdit);
+        result.can_edit = !!body.canEdit;
+      }
+      if (body.squads !== undefined) {
+        if (!Array.isArray(body.squads)) { res.status(400).json({ error: 'Lista de squads inválida.' }); return; }
+        await atualizarSquads(username, body.squads);
+        result.squads = body.squads;
+      }
+      if (body.canEdit === undefined && body.squads === undefined) {
+        res.status(400).json({ error: 'Nada para atualizar (informe canEdit ou squads).' });
         return;
       }
-      const result = await atualizarPermissao(username, !!body.canEdit);
       res.status(200).json(result);
       return;
     }
 
-    res.setHeader('Allow', ['GET', 'POST', 'PUT']);
+    // DELETE /api/users?username=... → exclui um usuário.
+    if (req.method === 'DELETE') {
+      const username = String(req.query.username || '').trim().toLowerCase();
+      if (!username) { res.status(400).json({ error: 'Informe o usuário.' }); return; }
+      if (username === ADMIN_USERNAME) {
+        res.status(400).json({ error: 'O administrador não pode ser excluído.' });
+        return;
+      }
+      const result = await removerUsuario(username);
+      res.status(200).json(result);
+      return;
+    }
+
+    res.setHeader('Allow', ['GET', 'POST', 'PUT', 'DELETE']);
     res.status(405).json({ error: 'Método não permitido' });
   } catch (err) {
     var msg = /does not exist/.test(err.message || '')
