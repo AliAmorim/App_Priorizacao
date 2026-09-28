@@ -343,6 +343,13 @@ select:focus{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
 .opt-note.show{opacity:1}
 .import-preview{font-size:13px;color:var(--fg);background:var(--surface-2);border:1px solid var(--border);border-radius:var(--radius-sm);padding:10px 12px;margin-top:12px;min-height:20px}
 #import-file{display:block;margin-top:12px;font-size:13.5px}
+#status-file{display:block;margin-top:12px;font-size:13.5px}
+.status-sel{width:100%;margin-top:8px;font-size:13.5px;padding:9px 10px;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--bg);color:var(--fg)}
+.status-map{display:flex;flex-direction:column;gap:6px}
+.status-map-row{display:flex;align-items:center;gap:8px;font-size:12.5px}
+.sm-label{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--fg)}
+.sm-arrow{color:var(--muted);flex:none}
+.status-map-row select{font-size:12.5px;padding:5px 8px;border:1px solid var(--border);border-radius:6px;background:var(--bg);color:var(--fg);max-width:52%}
 
 /* ---------- Toast ---------- */
 .toast{
@@ -693,6 +700,10 @@ select:focus{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21V9M7 14l5-5 5 5"/><path d="M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"/></svg>
       Importar
     </button>
+    <button class="btn btn-sm" id="btn-status" data-od-id="btn-update-status" title="Atualiza o status de itens já cadastrados a partir de uma planilha">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20 11a8 8 0 1 0-2.3 5.7"/><path d="M20 5v6h-6"/></svg>
+      Atualizar status
+    </button>
     <button class="btn btn-sm" id="btn-export" data-od-id="btn-export-excel" title="Exporta os itens visíveis (respeita filtros e ordenação)">
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12M7 10l5 5 5-5"></path><path d="M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"></path></svg>
       Exportar Excel
@@ -834,6 +845,34 @@ select:focus{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
       <div class="modal-foot">
         <button type="button" class="btn" id="btn-import-cancel">Cancelar</button>
         <button type="button" class="btn btn-primary" id="btn-import-do" disabled>Importar itens</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal atualizar status em massa -->
+<div class="overlay" id="overlay-status" data-od-id="modal-status-update">
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="status-title">
+    <div class="modal-head">
+      <div>
+        <h2 id="status-title">Atualizar status</h2>
+        <div class="hint">Muda o status só dos itens que já estão no backlog</div>
+      </div>
+      <button class="btn-icon" id="btn-status-close" aria-label="Fechar">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--muted)" stroke-width="1.8" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg>
+      </button>
+    </div>
+    <div class="modal-body">
+      <div class="opt-tip">Somente itens <b>já cadastrados</b> são atualizados — casados por <b>Nº</b> ou <b>Nome</b>. Itens da planilha que não existem aqui são <b>ignorados</b>: nada é adicionado.</div>
+      <div class="opt-title" style="margin-top:14px">Status a aplicar</div>
+      <select class="status-sel" id="status-target" data-od-id="status-target"></select>
+      <input type="file" id="status-file" accept=".xlsx,.xls,.csv" data-od-id="status-file">
+      <div class="status-map" id="status-map"></div>
+      <div class="import-preview" id="status-preview"></div>
+      <div class="modal-err" id="status-err"></div>
+      <div class="modal-foot">
+        <button type="button" class="btn" id="btn-status-cancel">Cancelar</button>
+        <button type="button" class="btn btn-primary" id="btn-status-do" disabled>Atualizar status</button>
       </div>
     </div>
   </div>
@@ -1295,7 +1334,7 @@ var supabase = null;
   // Mostra/oculta os controles de edição conforme a permissão do usuário.
   function applyPermissions(){
     var viewer = isViewer();
-    ["btn-new","btn-import","btn-opts"].forEach(function(id){
+    ["btn-new","btn-import","btn-status","btn-opts"].forEach(function(id){
       var el = document.getElementById(id);
       if (el) el.style.display = viewer ? "none" : "";
     });
@@ -1677,6 +1716,7 @@ var supabase = null;
     if (e.key !== "Escape") return;
     if (overlay.classList.contains("open")) closeModal();
     else if (overlayOpts.classList.contains("open")) closeOpts();
+    else if (document.getElementById("overlay-status").classList.contains("open")) closeStatusUpdate();
   });
 
   function disarm(){
@@ -2041,6 +2081,215 @@ var supabase = null;
     closeImport();
     render();
     showToast(qtd + " item(ns) importado(s) para o backlog.", "");
+  });
+
+  /* ---------- Atualizar status em massa (só itens já cadastrados) ---------- */
+  var statusUpdates = [];
+  var statusRaw = [];
+  var statusMap = {};
+
+  // De-para padrão: a planilha pode trazer o status escrito de várias formas
+  // (ex.: "Em desenvolvimento", "Em teste", "Em revisão técnica" = Em andamento).
+  // As chaves/valores abaixo estão sem acento e minúsculos (comparação normalizada).
+  var STATUS_SYNONYMS = {
+    "em desenvolvimento": "em andamento",
+    "desenvolvimento": "em andamento",
+    "em teste": "em andamento",
+    "teste": "em andamento",
+    "em revisao tecnica": "em andamento",
+    "revisao tecnica": "em andamento",
+    "em revisao": "em andamento",
+    "andamento": "em andamento",
+    "doing": "em andamento",
+    "active": "em andamento",
+    "em homologacao": "em homologacao",
+    "homologacao": "em homologacao",
+    "backlog": "backlog",
+    "aberto": "backlog",
+    "aberta": "backlog",
+    "refinamento": "backlog",
+    "novo": "backlog",
+    "new": "backlog",
+    "todo": "backlog",
+    "to do": "backlog",
+    "concluido": "concluido",
+    "concluida": "concluido",
+    "closed": "concluido",
+    "done": "concluido",
+    "resolved": "concluido",
+    "bloqueado": "bloqueado",
+    "blocked": "bloqueado",
+    "impedido": "bloqueado"
+  };
+
+  function appStatusByKey(key){
+    for (var i = 0; i < options.status.length; i++){
+      if (normStatus(options.status[i]) === key) return options.status[i];
+    }
+    return "";
+  }
+  function defaultStatusMap(sourceStatus){
+    var key = normStatus(sourceStatus);
+    if (!key) return "";
+    var exact = appStatusByKey(key);          // 1) já é igual a um status do app
+    if (exact) return exact;
+    var syn = STATUS_SYNONYMS[key];           // 2) sinônimo conhecido
+    if (syn){ var s = appStatusByKey(syn); if (s) return s; }
+    // 3) aproximação por conteúdo (ex.: "Em homologação" → status "Homologação")
+    var best = "";
+    for (var i = 0; i < options.status.length; i++){
+      var ak = normStatus(options.status[i]);
+      if (ak && ak.length > best.length && (ak.indexOf(key) >= 0 || key.indexOf(ak) >= 0)) best = options.status[i];
+    }
+    return best;
+  }
+
+  function openStatusUpdate(){
+    if (isViewer()) return;
+    statusUpdates = []; statusRaw = []; statusMap = {};
+    document.getElementById("status-err").textContent = "";
+    document.getElementById("status-preview").innerHTML = "";
+    document.getElementById("status-map").innerHTML = "";
+    document.getElementById("status-file").value = "";
+    document.getElementById("btn-status-do").disabled = true;
+    var sel = document.getElementById("status-target");
+    sel.innerHTML = '<option value="__file">Usar o status da planilha (com de-para)</option>' +
+      options.status.map(function(s){ return '<option value="' + esc(s) + '">' + esc(s) + '</option>'; }).join("");
+    sel.value = "__file";
+    document.getElementById("overlay-status").classList.add("open");
+  }
+  function closeStatusUpdate(){
+    document.getElementById("overlay-status").classList.remove("open");
+    statusUpdates = []; statusRaw = []; statusMap = {};
+  }
+
+  function matchExistingItem(numero, nome){
+    var n = String(numero || "").trim().toLowerCase();
+    var nm = String(nome || "").trim().toLowerCase();
+    if (n){
+      var byNum = items.find(function(i){ return String(i.numero || "").trim().toLowerCase() === n; });
+      if (byNum) return byNum;
+    }
+    if (nm){
+      var byName = items.find(function(i){ return String(i.nome || "").trim().toLowerCase() === nm; });
+      if (byName) return byName;
+    }
+    return null;
+  }
+
+  function parseStatusRow(row){
+    var fields = {};
+    Object.keys(row).forEach(function(h){ var f = resolveField(h); if (f) fields[f] = cleanVal(row[h]); });
+    if (!fields.numero && !fields.nome) return null;
+    return { numero: fields.numero || "", nome: fields.nome || "", status: fields.status || "" };
+  }
+
+  function renderStatusMap(sel){
+    var box = document.getElementById("status-map");
+    if (sel !== "__file"){ box.innerHTML = ""; return; }
+    var order = [], labels = {};
+    statusRaw.forEach(function(r){
+      var k = normStatus(r.status);
+      if (!k || labels[k]) return;
+      labels[k] = r.status; order.push(k);
+    });
+    if (!order.length){ box.innerHTML = ""; return; }
+    box.innerHTML = '<div class="opt-title" style="margin-top:14px">De-para de status (planilha → app)</div>' +
+      order.map(function(k){
+        var chosen = statusMap[k] || "";
+        return '<div class="status-map-row">' +
+          '<span class="sm-label">' + esc(labels[k]) + '</span>' +
+          '<span class="sm-arrow">→</span>' +
+          '<select data-map-key="' + esc(k) + '">' +
+            '<option value=""' + (chosen ? "" : " selected") + '>Ignorar</option>' +
+            options.status.map(function(s){ return '<option value="' + esc(s) + '"' + (chosen === s ? " selected" : "") + '>' + esc(s) + '</option>'; }).join("") +
+          '</select>' +
+        '</div>';
+      }).join("");
+  }
+
+  function computeStatusUpdates(){
+    var sel = document.getElementById("status-target").value;
+    statusUpdates = [];
+    var missing = 0, invalid = 0, seen = {};
+    statusRaw.forEach(function(r){
+      var it = matchExistingItem(r.numero, r.nome);
+      if (!it){ missing++; return; }
+      var target = (sel === "__file") ? (statusMap[normStatus(r.status)] || "") : sel;
+      if (!target){ invalid++; return; }
+      if (seen[String(it.numero)]) return;
+      seen[String(it.numero)] = true;
+      statusUpdates.push({ item: it, status: target });
+    });
+    var parts = ["<b>" + statusUpdates.length + "</b> item(ns) serão atualizados"];
+    if (missing) parts.push(missing + " não encontrado(s) (ignorado(s))");
+    if (invalid) parts.push(invalid + " ignorado(s) por status sem de-para");
+    document.getElementById("status-preview").innerHTML = statusRaw.length
+      ? parts.join(" · ") + "."
+      : "Nenhum item reconhecido. Confira os títulos das colunas.";
+    document.getElementById("btn-status-do").disabled = statusUpdates.length === 0;
+  }
+
+  function analyzeStatusFile(sel){
+    // Preenche o de-para só para status novos, preservando escolhas já feitas.
+    var keys = {};
+    statusRaw.forEach(function(r){ var k = normStatus(r.status); if (k) keys[k] = true; });
+    Object.keys(keys).forEach(function(k){
+      if (statusMap[k] === undefined) statusMap[k] = defaultStatusMap(k) || "";
+    });
+    renderStatusMap(sel);
+    computeStatusUpdates();
+  }
+
+  function parseStatusFile(){
+    var input = document.getElementById("status-file");
+    var file = input.files && input.files[0];
+    if (!file) return;
+    var sel = document.getElementById("status-target").value;
+    var isCsv = /\.csv$/i.test(file.name);
+    var reader = new FileReader();
+    reader.onload = function(){
+      try {
+        if (!window.XLSX) throw new Error("Biblioteca de Excel não carregou.");
+        var wb = XLSX.read(reader.result, { type: isCsv ? "string" : "array" });
+        var ws = wb.Sheets[wb.SheetNames[0]];
+        var rows = XLSX.utils.sheet_to_json(ws, { defval: "" });
+        statusRaw = rows.map(parseStatusRow).filter(Boolean);
+        statusMap = {};
+        analyzeStatusFile(sel);
+      } catch(err) {
+        document.getElementById("status-err").textContent = "Não foi possível ler o arquivo: " + err.message;
+      }
+    };
+    if (isCsv) reader.readAsText(file); else reader.readAsArrayBuffer(file);
+  }
+
+  document.getElementById("btn-status").addEventListener("click", openStatusUpdate);
+  document.getElementById("btn-status-close").addEventListener("click", closeStatusUpdate);
+  document.getElementById("btn-status-cancel").addEventListener("click", closeStatusUpdate);
+  document.getElementById("overlay-status").addEventListener("click", function(e){ if (e.target === this) closeStatusUpdate(); });
+  document.getElementById("status-file").addEventListener("change", parseStatusFile);
+  document.getElementById("status-target").addEventListener("change", function(){
+    if (document.getElementById("status-file").files.length) analyzeStatusFile(document.getElementById("status-target").value);
+    else document.getElementById("status-map").innerHTML = "";
+  });
+  document.getElementById("status-map").addEventListener("change", function(e){
+    var m = e.target.closest("[data-map-key]");
+    if (!m) return;
+    statusMap[m.getAttribute("data-map-key")] = m.value;
+    computeStatusUpdates();
+  });
+  document.getElementById("btn-status-do").addEventListener("click", function(){
+    if (!statusUpdates.length) return;
+    var changed = 0;
+    statusUpdates.forEach(function(u){
+      if (u.item.status !== u.status){ u.item.status = u.status; changed++; }
+    });
+    renumber();
+    save();
+    closeStatusUpdate();
+    render();
+    showToast(changed ? changed + " item(ns) atualizado(s)." : "Nenhum status precisou ser alterado.", "");
   });
 
   /* ---------- Gerenciar opções dos filtros ---------- */
