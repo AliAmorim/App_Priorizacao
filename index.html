@@ -118,7 +118,7 @@ input,select{font-family:inherit;color:var(--fg)}
 .wrap{max-width:1240px;margin:0 auto;padding:22px 28px 60px}
 
 /* ---------- Summary cards ---------- */
-.summary{display:grid;grid-template-columns:repeat(5,1fr);gap:14px;margin-bottom:18px}
+.summary{display:grid;grid-template-columns:repeat(6,1fr);gap:14px;margin-bottom:18px}
 .stat{
   background:var(--surface);border:1px solid var(--border);
   border-radius:var(--radius);padding:16px 18px;box-shadow:var(--shadow-1);
@@ -134,6 +134,8 @@ input,select{font-family:inherit;color:var(--fg)}
 }
 .stat .v small{font-size:15px;font-weight:500;color:var(--muted);letter-spacing:0}
 .stat .dot{width:8px;height:8px;border-radius:50%}
+.stat.stat-warn .k{color:var(--warn)}
+.stat.stat-warn .v{color:var(--warn)}
 .dot-neutral{background:var(--muted)}
 .dot-accent{background:var(--accent)}
 .dot-warn{background:var(--warn)}
@@ -258,6 +260,8 @@ select:focus{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
 .st-concluido{color:var(--success)}
 .st-bloqueado .sd{background:var(--danger)}
 .st-bloqueado{color:var(--danger)}
+.st-em-homologacao .sd{background:var(--warn)}
+.st-em-homologacao{color:var(--warn)}
 
 .c-actions{display:flex;justify-content:flex-end;gap:4px}
 
@@ -632,6 +636,10 @@ select:focus{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
     <div class="stat" data-od-id="summary-progress">
       <div class="k"><span class="dot dot-accent"></span>Em andamento</div>
       <div class="v" id="st-progress">–</div>
+    </div>
+    <div class="stat stat-warn" data-od-id="summary-homolog">
+      <div class="k"><span class="dot dot-warn"></span>Em homologação</div>
+      <div class="v" id="st-homolog">–</div>
     </div>
     <div class="stat" data-od-id="summary-urgent">
       <div class="k"><span class="dot dot-warn"></span>Urgentes</div>
@@ -1013,7 +1021,7 @@ select:focus{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
   var SESSION_KEY = "backlog-devops-session-v1";
   var DEFAULT_OPTIONS = {
     prioridades: ["Urgente", "Alta", "Média", "Baixa"],
-    status: ["Backlog", "Em andamento", "Concluído", "Bloqueado"],
+    status: ["Backlog", "Em andamento", "Em homologação", "Concluído", "Bloqueado"],
     pos: ["Aline Amorim", "Nairlla Hanna", "Louise Oliveira", "Juliana Constancio", "Kathiane Marques"],
     areas: ["Autenticação", "CI/CD", "Infraestrutura", "Monitoramento", "Segurança", "Dados", "Plataforma"]
   };
@@ -1025,7 +1033,7 @@ var supabase = null;
 
   function clone(o){ return JSON.parse(JSON.stringify(o)); }
   function priScore(p){ var i = options.prioridades.indexOf(p); return i < 0 ? 999 : i; }
-  function clsName(s){ return String(s).toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, ""); }
+  function clsName(s){ return String(s).toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, ""); }
 
   function squadColor(s){
     if (s === "SED Pedagógico") return "var(--accent)";
@@ -1065,6 +1073,10 @@ var supabase = null;
   var editing = null, armed = null, armTimer = null;
 
   function isDone(it){ return !!(it && it.status === "Concluído"); }
+  function normStatus(s){ return String(s || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim(); }
+  // "Em homologação" = a equipe já entregou; portanto não conta como atrasado.
+  function isHomolog(it){ return normStatus(it && it.status) === "em homologacao"; }
+  function isDelivered(it){ return isDone(it) || isHomolog(it); }
   // Só os itens ativos entram na priorização (1, 2, 3…). Os concluídos vão para o fim
   // e não recebem número — por isso ficam com ordem acima da dos ativos.
   function renumber(){
@@ -1427,7 +1439,7 @@ var supabase = null;
   }
 
   function relLabel(it){
-    if (it.status === "Concluído" || !it.prazo) return "";
+    if (isDelivered(it) || !it.prazo) return "";
     var d = dayDiff(it.prazo);
     if (d < 0) return "atrasado há " + (-d) + (d === -1 ? " dia" : " dias");
     if (d === 0) return "vence hoje";
@@ -1435,7 +1447,7 @@ var supabase = null;
     return "vence em " + d + " dias";
   }
   function dueClass(it){
-    if (it.status === "Concluído" || !it.prazo) return "";
+    if (isDelivered(it) || !it.prazo) return "";
     var d = dayDiff(it.prazo);
     if (d < 0) return "late";
     if (d === 0) return "today";
@@ -1541,16 +1553,20 @@ var supabase = null;
       (isViewer() ? "Nenhum item cadastrado neste backlog." : "Nenhum item cadastrado. Clique em \"Novo item\" para começar.");
     document.getElementById("count").innerHTML = "Exibindo <b>" + visible.length + "</b> de <b>" + items.length + "</b> itens";
 
-    var open = items.filter(function(i){ return i.status !== "Concluído"; });
-    // O card "Em andamento" tem contagem própria; essas saem do "Itens no backlog".
-    var isProgress = function(i){ return String(i.status || "").trim().toLowerCase() === "em andamento"; };
+    var open = items.filter(function(i){ return !isDone(i); });
+    // Cards do fluxo: backlog (não iniciado), em andamento e em homologação.
+    var isProgress = function(i){ return normStatus(i.status) === "em andamento"; };
+    var homolog = open.filter(isHomolog).length;
     var progress = open.filter(isProgress).length;
-    var backlog = open.filter(function(i){ return !isProgress(i); }).length;
-    var urgent = open.filter(function(i){ return i.pri === "Urgente"; }).length;
-    var late = open.filter(function(i){ return dayDiff(i.prazo) < 0; }).length;
-    var week = open.filter(function(i){ var d = dayDiff(i.prazo); return d >= 0 && d <= 7; }).length;
+    var backlog = open.filter(function(i){ return !isProgress(i) && !isHomolog(i); }).length;
+    // Prazos: itens entregues (concluído ou em homologação) não contam.
+    var pending = open.filter(function(i){ return !isHomolog(i); });
+    var urgent = pending.filter(function(i){ return i.pri === "Urgente"; }).length;
+    var late = pending.filter(function(i){ return dayDiff(i.prazo) < 0; }).length;
+    var week = pending.filter(function(i){ var d = dayDiff(i.prazo); return d >= 0 && d <= 7; }).length;
     document.getElementById("st-total").textContent = backlog;
     document.getElementById("st-progress").textContent = progress;
+    document.getElementById("st-homolog").textContent = homolog;
     document.getElementById("st-urgent").textContent = urgent;
     document.getElementById("st-late").textContent = late;
     document.getElementById("st-7d").textContent = week;
