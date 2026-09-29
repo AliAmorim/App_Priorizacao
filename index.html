@@ -202,11 +202,14 @@ select:focus{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
 .row.impedido:hover{background:color-mix(in oklch, var(--danger-soft) 72%, var(--bg))}
 .row.impedido .c-name .t{color:var(--danger)}
 .c-num{font-family:var(--font-mono);font-size:12.5px;font-weight:600;color:var(--muted)}
-.c-ord{display:flex;align-items:center;gap:8px;cursor:grab;touch-action:none}
+.c-ord{display:flex;align-items:center;gap:8px}
 .c-ord .o-grip{color:var(--muted);display:grid;place-items:center;flex:none}
 .c-ord .o-grip svg{display:block}
 .c-ord:hover .o-grip{color:var(--accent-strong)}
 .c-ord .o-num{font-family:var(--font-mono);font-size:13.5px;font-weight:600;color:var(--fg);min-width:2ch;text-align:right}
+.c-ord .o-input{width:46px;font-family:var(--font-mono);font-size:13.5px;font-weight:600;color:var(--fg);text-align:center;padding:3px 4px;border:1px solid var(--border);border-radius:6px;background:var(--bg);-moz-appearance:textfield}
+.c-ord .o-input:focus{outline:none;border-color:var(--accent);color:var(--accent-strong)}
+.c-ord .o-input::-webkit-outer-spin-button,.c-ord .o-input::-webkit-inner-spin-button{-webkit-appearance:none;margin:0}
 .c-ord .o-move{display:flex;flex-direction:column}
 .c-ord .o-move button{
   background:none;border:none;padding:1px 2px;line-height:0;cursor:pointer;
@@ -717,7 +720,7 @@ select:focus{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
 
   <section class="list" data-od-id="item-list" aria-label="Itens de desenvolvimento">
     <div class="thead" aria-hidden="true">
-      <span class="t-ord" title="Arraste as linhas para reordenar">Ordem</span>
+      <span class="t-ord" title="Digite a ordem para priorizar">Ordem</span>
       <span class="t-num">Nº do item</span>
       <span class="t-name">Item</span>
       <span class="t-tipo">Tipo</span>
@@ -740,7 +743,7 @@ select:focus{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
   <footer class="foot" data-od-id="footer">
     <div class="foot-left">
       <span class="conn" id="conn" data-od-id="conn-status"><span class="sd"></span><span id="conn-text">Verificando conexão…</span></span>
-      <span>arraste as linhas para reordenar</span>
+      <span>digite a ordem para priorizar</span>
     </div>
   </footer>
 </main>
@@ -1509,8 +1512,7 @@ var supabase = null;
       var _canUp = _ai > 0;
       var _canDown = _ai >= 0 && _ai < _ativos.length - 1;
       ordCell = '<span class="c-ord">' +
-          '<span class="o-grip" title="Arraste para reordenar" aria-hidden="true"><svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" stroke="none"><circle cx="8" cy="5" r="1.4"/><circle cx="16" cy="5" r="1.4"/><circle cx="8" cy="12" r="1.4"/><circle cx="16" cy="12" r="1.4"/><circle cx="8" cy="19" r="1.4"/><circle cx="16" cy="19" r="1.4"/></svg></span>' +
-          '<span class="o-num">' + it.ordem + '</span>' +
+          '<input class="o-input" type="number" inputmode="numeric" min="1" max="' + _ativos.length + '" step="1" value="' + it.ordem + '" data-ord="' + esc(it.numero) + '" aria-label="Ordem do item ' + esc(it.numero) + '" title="Digite a ordem e pressione Enter">' +
           '<span class="o-move">' +
             '<button data-act="up" data-id="' + esc(it.numero) + '" aria-label="Mover ' + esc(it.numero) + ' para cima" ' + (_canUp ? "" : "disabled") + '>' +
               '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 14l6-6 6 6"/></svg>' +
@@ -1728,6 +1730,29 @@ var supabase = null;
     return '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--muted)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6M10 11v6M14 11v6"/></svg>';
   }
 
+  function moveItemToPosition(numero, pos){
+    if (isViewer()) return;
+    var active = items.filter(function(x){ return !isDone(x); });
+    var idx = active.findIndex(function(x){ return x.numero === numero; });
+    if (idx < 0 || isNaN(pos)){ render(); return; }
+    pos = Math.max(1, Math.min(active.length, Math.round(pos)));
+    var target = pos - 1;
+    if (target !== idx){
+      var moved = active.splice(idx, 1)[0];
+      active.splice(target, 0, moved);
+      items = active.concat(items.filter(isDone));
+      renumber();
+      save();
+    }
+    render();
+  }
+
+  document.getElementById("rows").addEventListener("change", function(e){
+    var inp = e.target.closest(".o-input");
+    if (!inp) return;
+    moveItemToPosition(inp.getAttribute("data-ord"), parseInt(inp.value, 10));
+  });
+
   document.getElementById("rows").addEventListener("click", function(e){
     var btn = e.target.closest("button[data-act]");
     if (!btn) return;
@@ -1813,7 +1838,7 @@ var supabase = null;
 
   rowsEl.addEventListener("pointerdown", function(e){
     if (isViewer()) return;
-    var ord = e.target.closest(".c-ord");
+    var ord = e.target.closest(".o-grip");
     if (!ord) return;
     if (e.target.closest("button")) return;
     if (filter.sort !== "ordem") return;
