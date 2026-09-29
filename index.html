@@ -119,6 +119,12 @@ input,select{font-family:inherit;color:var(--fg)}
 
 /* ---------- Summary cards ---------- */
 .summary{display:grid;grid-template-columns:repeat(6,1fr);gap:14px;margin-bottom:18px}
+.tabs{display:flex;align-items:center;gap:6px;margin:0 0 14px;overflow-x:auto;padding-bottom:2px;scrollbar-width:thin}
+.tab{display:inline-flex;align-items:center;gap:8px;border:1px solid var(--border);background:var(--surface);color:var(--muted);border-radius:999px;padding:7px 14px;font-size:13.5px;font-weight:550;letter-spacing:0.01em;cursor:pointer;white-space:nowrap;transition:background .12s,color .12s,border-color .12s}
+.tab:hover{color:var(--fg);background:var(--surface-2)}
+.tab.active{background:var(--accent-soft);color:var(--accent-strong);border-color:color-mix(in oklch,var(--accent) 30%,transparent)}
+.tab-count{font-family:var(--font-mono);font-size:12px;font-weight:600;opacity:.75}
+.tab.active .tab-count{opacity:1}
 .stat{
   background:var(--surface);border:1px solid var(--border);
   border-radius:var(--radius);padding:16px 18px;box-shadow:var(--shadow-1);
@@ -678,13 +684,6 @@ select:focus{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
       <option>Baixa</option>
     </select>
     <select id="f-po" data-od-id="filter-po" aria-label="Filtrar por PO"></select>
-    <select id="f-status" data-od-id="filter-status" aria-label="Filtrar por status">
-      <option value="">Todo status</option>
-      <option>Backlog</option>
-      <option>Em andamento</option>
-      <option>Concluído</option>
-      <option>Bloqueado</option>
-    </select>
     <select id="f-tipo" data-od-id="filter-tipo" aria-label="Filtrar por tipo">
       <option value="">Todo tipo</option>
       <option>Ticket</option>
@@ -717,6 +716,8 @@ select:focus{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
     </button>
     <button class="link-clear" id="btn-clear" data-od-id="btn-clear-filters" style="display:none">Limpar filtros</button>
   </section>
+
+  <nav class="tabs" id="tabs" role="tablist" data-od-id="status-tabs" aria-label="Filtrar por status"></nav>
 
   <section class="list" data-od-id="item-list" aria-label="Itens de desenvolvimento">
     <div class="thead" aria-hidden="true">
@@ -1112,6 +1113,7 @@ var supabase = null;
   }
 
   var items, filter = { q:"", pri:"", po:"", status:"", tipo:"", sort:"ordem" };
+  var _tabAct = [], _tabPos = {};
   var editing = null, armed = null, armTimer = null;
 
   function isDone(it){ return !!(it && it.status === "Concluído"); }
@@ -1119,13 +1121,27 @@ var supabase = null;
   // "Em homologação" = a equipe já entregou; portanto não conta como atrasado.
   function isHomolog(it){ return normStatus(it && it.status) === "em homologacao"; }
   function isDelivered(it){ return isDone(it) || isHomolog(it); }
-  // Só os itens ativos entram na priorização (1, 2, 3…). Os concluídos vão para o fim
-  // e não recebem número — por isso ficam com ordem acima da dos ativos.
+  // A ordem é ÚNICA (global): o item mantém a posição ao mudar de status.
+  // Os concluídos ficam por último. (A numeração mostrada nas abas de status é
+  // derivada da posição dentro da aba; na aba "Todos" é a ordem global.)
   function renumber(){
     var ativos = items.filter(function(it){ return !isDone(it); });
+    ativos.sort(function(a, b){ return (a.ordem || 1e9) - (b.ordem || 1e9); });
     ativos.forEach(function(it, i){ it.ordem = i + 1; });
     var concluidos = items.filter(isDone);
+    concluidos.sort(function(a, b){ return (a.ordem || 1e9) - (b.ordem || 1e9); });
     concluidos.forEach(function(it, i){ it.ordem = ativos.length + i + 1; });
+  }
+
+  // Itens ativos da aba atual (a categoria selecionada, ou todos na aba "Todos"),
+  // ordenados pela ordem global.
+  function tabActiveItems(){
+    var g = items.filter(function(x){
+      if (isDone(x)) return false;
+      return filter.status ? statusCategory(x.status) === filter.status : true;
+    });
+    g.sort(function(a, b){ return (a.ordem || 1e9) - (b.ordem || 1e9); });
+    return g;
   }
 
   function saveOpts(){
@@ -1146,8 +1162,62 @@ var supabase = null;
   function buildFilterOptions(){
     fillSelect("f-pri", options.prioridades, "Toda prioridade", filter.pri);
     fillSelect("f-po", options.pos, "Todo PO", filter.po);
-    fillSelect("f-status", options.status, "Todo status", filter.status);
     fillSelect("f-tipo", TIPOS, "Todo tipo", filter.tipo);
+  }
+
+  // Abas = agrupamentos de status. Cada aba reúne vários status (ex.: "Aberto" e
+  // "Refinamento" caem em Backlog; "Em desenvolvimento"/"Em teste" em Em andamento).
+  var STATUS_CATS = [
+    { key: "backlog",     label: "Backlog",        match: ["backlog","aberto","aberta","refinamento","refinar","novo","new","todo","to do","triagem","ideia"] },
+    { key: "andamento",   label: "Em andamento",   match: ["andamento","desenvolvimento","desenvolvendo","teste","testando","revisao","doing","active","execucao"] },
+    { key: "homologacao", label: "Em homologação", match: ["homologacao","homologando"] },
+    { key: "concluido",   label: "Concluído",      match: ["concluido","finalizado","entregue","closed","done","resolved"] },
+    { key: "bloqueado",   label: "Bloqueado",      match: ["bloqueado","blocked","impedido","pausado","parado"] }
+  ];
+  var CORE_CATS = ["backlog","andamento","homologacao","concluido"];
+  var CAT_ORDER = ["backlog","andamento","homologacao","concluido","bloqueado","outros"];
+  function catRank(c){ var i = CAT_ORDER.indexOf(c); return i < 0 ? 999 : i; }
+
+  function statusCategory(status){
+    var k = normStatus(status);
+    if (!k) return "outros";
+    for (var i = 0; i < STATUS_CATS.length; i++){
+      var c = STATUS_CATS[i];
+      for (var j = 0; j < c.match.length; j++){ if (k.indexOf(c.match[j]) >= 0) return c.key; }
+    }
+    return "outros";
+  }
+  function catLabel(key){
+    if (key === "outros") return "Outros";
+    for (var i = 0; i < STATUS_CATS.length; i++){ if (STATUS_CATS[i].key === key) return STATUS_CATS[i].label; }
+    return key;
+  }
+
+  var tabsDefaulted = false;
+  function defaultStatusTab(){
+    if (tabsDefaulted) return;
+    tabsDefaulted = true;
+    var counts = {};
+    items.forEach(function(i){ var c = statusCategory(i.status); counts[c] = (counts[c] || 0) + 1; });
+    for (var i = 0; i < CORE_CATS.length; i++){ if (counts[CORE_CATS[i]]){ filter.status = CORE_CATS[i]; return; } }
+    filter.status = "backlog";
+  }
+  function buildTabs(){
+    var el = document.getElementById("tabs");
+    if (!el) return;
+    var counts = {};
+    items.forEach(function(i){ var c = statusCategory(i.status); counts[c] = (counts[c] || 0) + 1; });
+    var order = CORE_CATS.slice();
+    ["bloqueado","outros"].forEach(function(k){ if (counts[k]) order.push(k); });
+    var cur = filter.status || "";
+    var tabs = order.map(function(k){ return { v: k, label: catLabel(k), n: counts[k] || 0 }; });
+    tabs.push({ v: "", label: "Todos", n: items.length });
+    el.innerHTML = tabs.map(function(t){
+      return '<button type="button" class="tab' + (t.v === cur ? " active" : "") + '" data-status="' + esc(t.v) + '" role="tab" aria-selected="' + (t.v === cur ? "true" : "false") + '">' +
+        '<span class="tab-label">' + esc(t.label) + '</span>' +
+        '<span class="tab-count">' + t.n + '</span>' +
+      '</button>';
+    }).join("");
   }
 
   function fillFormSelect(id, values, cur, placeholder){
@@ -1504,15 +1574,16 @@ var supabase = null;
     var rel = relLabel(it);
     var viewer = isViewer();
     var ordCell;
-    if (viewer || done){
-      ordCell = '<span class="c-ord"><span class="o-num">' + (done ? "—" : it.ordem) + '</span></span>';
+    var _pos = _tabPos[it.numero];
+    if (done){
+      ordCell = '<span class="c-ord"><span class="o-num">—</span></span>';
+    } else if (viewer){
+      ordCell = '<span class="c-ord"><span class="o-num">' + (_pos || "") + '</span></span>';
     } else {
-      var _ativos = items.filter(function(x){ return !isDone(x); });
-      var _ai = _ativos.indexOf(it);
-      var _canUp = _ai > 0;
-      var _canDown = _ai >= 0 && _ai < _ativos.length - 1;
+      var _canUp = _pos > 1;
+      var _canDown = _pos >= 1 && _pos < _tabAct.length;
       ordCell = '<span class="c-ord">' +
-          '<input class="o-input" type="number" inputmode="numeric" min="1" max="' + _ativos.length + '" step="1" value="' + it.ordem + '" data-ord="' + esc(it.numero) + '" aria-label="Ordem do item ' + esc(it.numero) + '" title="Digite a ordem e pressione Enter">' +
+          '<input class="o-input" type="number" inputmode="numeric" min="1" max="' + _tabAct.length + '" step="1" value="' + _pos + '" data-ord="' + esc(it.numero) + '" aria-label="Ordem do item ' + esc(it.numero) + '" title="Digite a ordem e pressione Enter">' +
           '<span class="o-move">' +
             '<button data-act="up" data-id="' + esc(it.numero) + '" aria-label="Mover ' + esc(it.numero) + ' para cima" ' + (_canUp ? "" : "disabled") + '>' +
               '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 14l6-6 6 6"/></svg>' +
@@ -1563,7 +1634,7 @@ var supabase = null;
       var _b = String(filter.po).trim().toLowerCase();
       if (_a !== _b) return false;
     }
-    if (filter.status && it.status !== filter.status) return false;
+    if (filter.status && statusCategory(it.status) !== filter.status) return false;
     if (filter.tipo && it.tipo !== filter.tipo) return false;
     return true;
   }
@@ -1573,7 +1644,7 @@ var supabase = null;
     var fa = isDone(a) ? 1 : 0, fb = isDone(b) ? 1 : 0;
     if (fa !== fb) return fa - fb;
     if (filter.sort === "num") return b.numero.localeCompare(a.numero);
-    if (filter.sort === "ordem") return a.ordem - b.ordem;
+    if (filter.sort === "ordem") return (a.ordem || 1e9) - (b.ordem || 1e9);
     var pa = priScore(a.pri), pb = priScore(b.pri);
     if (pa !== pb) return pa - pb;
     var da = a.prazo || "9999-12-31";
@@ -1582,11 +1653,17 @@ var supabase = null;
   }
 
   function render(){
+    defaultStatusTab();
     var visible = items.filter(matches).slice().sort(sortBy);
+    // Posição de cada item na aba atual: ordem global (Todos) ou por aba (status).
+    _tabAct = tabActiveItems();
+    _tabPos = {};
+    _tabAct.forEach(function(it, i){ _tabPos[it.numero] = i + 1; });
     var el = document.getElementById("rows");
     el.innerHTML = visible.map(rowHTML).join("");
+    buildTabs();
 
-    var hasFilter = filter.q || filter.pri || filter.po || filter.status || filter.tipo;
+    var hasFilter = filter.q || filter.pri || filter.po || filter.tipo;
     document.getElementById("btn-clear").style.display = hasFilter ? "inline-block" : "none";
     document.getElementById("empty").style.display = visible.length ? "none" : "block";
     document.getElementById("empty-msg").textContent = items.length ?
@@ -1732,16 +1809,19 @@ var supabase = null;
 
   function moveItemToPosition(numero, pos){
     if (isViewer()) return;
-    var active = items.filter(function(x){ return !isDone(x); });
-    var idx = active.findIndex(function(x){ return x.numero === numero; });
-    if (idx < 0 || isNaN(pos)){ render(); return; }
-    pos = Math.max(1, Math.min(active.length, Math.round(pos)));
+    var g = tabActiveItems();
+    var it = g.find(function(x){ return x.numero === numero; });
+    if (!it){ render(); return; }
+    if (isNaN(pos)){ render(); return; }
+    var idx = g.indexOf(it);
+    pos = Math.max(1, Math.min(g.length, Math.round(pos)));
     var target = pos - 1;
     if (target !== idx){
-      var moved = active.splice(idx, 1)[0];
-      active.splice(target, 0, moved);
-      items = active.concat(items.filter(isDone));
-      renumber();
+      // Permuta os "lugares" de ordem global do grupo, mantendo os demais itens.
+      var slots = g.map(function(x){ return x.ordem; }).sort(function(a, b){ return a - b; });
+      g.splice(idx, 1);
+      g.splice(target, 0, it);
+      g.forEach(function(x, i){ x.ordem = slots[i]; });
       save();
     }
     render();
@@ -1761,12 +1841,12 @@ var supabase = null;
     var act = btn.getAttribute("data-act");
     if (act === "up" || act === "down"){
       disarm();
-      var idx = items.findIndex(function(x){ return x.numero === id; });
-      var t = act === "up" ? idx - 1 : idx + 1;
-      if (idx < 0 || t < 0 || t >= items.length) return;
-      if (isDone(items[idx]) || isDone(items[t])) return;
-      var tmp = items[idx]; items[idx] = items[t]; items[t] = tmp;
-      renumber();
+      var g = tabActiveItems();
+      var gi = g.findIndex(function(x){ return x.numero === id; });
+      var gt = act === "up" ? gi - 1 : gi + 1;
+      if (gi < 0 || gt < 0 || gt >= g.length) return;
+      var ga = g[gi], gb = g[gt];
+      var tmpO = ga.ordem; ga.ordem = gb.ordem; gb.ordem = tmpO;
       save();
       render();
       return;
@@ -1805,17 +1885,23 @@ var supabase = null;
     }
   });
 
-  ["f-search","f-pri","f-po","f-status","f-tipo","f-sort"].forEach(function(id){
+  ["f-search","f-pri","f-po","f-tipo","f-sort"].forEach(function(id){
     var el = document.getElementById(id);
     el.addEventListener(id === "f-search" ? "input" : "change", function(){
       if (id === "f-search") filter.q = el.value;
       else if (id === "f-pri") filter.pri = el.value;
       else if (id === "f-po") filter.po = el.value;
-      else if (id === "f-status") filter.status = el.value;
       else if (id === "f-tipo") filter.tipo = el.value;
       else filter.sort = el.value;
       render();
     });
+  });
+
+  document.getElementById("tabs").addEventListener("click", function(e){
+    var tab = e.target.closest("[data-status]");
+    if (!tab) return;
+    filter.status = tab.getAttribute("data-status");
+    render();
   });
 
   document.getElementById("btn-clear").addEventListener("click", function(){
@@ -1823,7 +1909,6 @@ var supabase = null;
     document.getElementById("f-search").value = "";
     document.getElementById("f-pri").value = "";
     document.getElementById("f-po").value = "";
-    document.getElementById("f-status").value = "";
     document.getElementById("f-tipo").value = "";
     render();
   });
@@ -2029,12 +2114,20 @@ var supabase = null;
     if (/^—+$/.test(fields.nome) || /^nenhum/i.test(fields.nome)) return null;
     var defPri = options.prioridades.indexOf("Média") >= 0 ? "Média" : (options.prioridades[0] || "Média");
     var poVal = matchPoOption(fields.po);
+    // De-para do status: "Em desenvolvimento"/"Em teste" → "Em andamento"; se não
+    // houver correspondência configurada, mantém o valor original (as abas agrupam).
+    var stStatus;
+    if (!fields.status){
+      stStatus = options.status.indexOf("Backlog") >= 0 ? "Backlog" : (options.status[0] || "Backlog");
+    } else {
+      stStatus = defaultStatusMap(fields.status) || fields.status;
+    }
     return {
       numero: fields.numero || "",
       nome: fields.nome,
       po: poVal,
       pri: fields.pri || defPri,
-      status: fields.status || "Backlog",
+      status: stStatus,
       area: fields.area || detectArea(fields.nome, options.areas),
       prazo: normalizePrazo(fields.prazo),
       tipo: fields.tipo ? normalizeTipo(fields.tipo) : "User Story",
@@ -2104,6 +2197,7 @@ var supabase = null;
     renumber();
     save();
     closeImport();
+    filter.status = "";
     render();
     showToast(qtd + " item(ns) importado(s) para o backlog.", "");
   });
