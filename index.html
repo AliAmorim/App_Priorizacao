@@ -693,6 +693,8 @@ select:focus{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
     <select id="f-sort" data-od-id="filter-sort" aria-label="Ordenar">
       <option value="ordem" selected="">Ordenar: ordem de execução</option>
       <option value="pri">Ordenar: prioridade</option>
+      <option value="po">Ordenar: PO responsável</option>
+      <option value="area">Ordenar: área</option>
       <option value="due">Ordenar: prazo</option>
       <option value="num">Ordenar: nº do item</option>
     </select>
@@ -1645,6 +1647,22 @@ var supabase = null;
     if (fa !== fb) return fa - fb;
     if (filter.sort === "num") return b.numero.localeCompare(a.numero);
     if (filter.sort === "ordem") return (a.ordem || 1e9) - (b.ordem || 1e9);
+    if (filter.sort === "po"){
+      var poA = String(a.po || "").trim(), poB = String(b.po || "").trim();
+      if (!poA && poB) return 1;      // sem PO vai para o fim
+      if (poA && !poB) return -1;
+      var cmpPo = poA.localeCompare(poB, "pt-BR");
+      if (cmpPo !== 0) return cmpPo;
+      return (a.ordem || 1e9) - (b.ordem || 1e9);
+    }
+    if (filter.sort === "area"){
+      var arA = String(a.area || "").trim(), arB = String(b.area || "").trim();
+      if (!arA && arB) return 1;      // sem área vai para o fim
+      if (arA && !arB) return -1;
+      var cmpAr = arA.localeCompare(arB, "pt-BR");
+      if (cmpAr !== 0) return cmpAr;
+      return (a.ordem || 1e9) - (b.ordem || 1e9);
+    }
     var pa = priScore(a.pri), pb = priScore(b.pri);
     if (pa !== pb) return pa - pb;
     var da = a.prazo || "9999-12-31";
