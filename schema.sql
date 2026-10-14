@@ -25,11 +25,19 @@ CREATE TABLE IF NOT EXISTS items (
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   tipo TEXT NOT NULL DEFAULT 'User Story',
   impedido BOOLEAN NOT NULL DEFAULT false,
+  aberto_em TIMESTAMPTZ,
+  andamento_em TIMESTAMPTZ,
+  homologacao_em TIMESTAMPTZ,
+  concluido_em TIMESTAMPTZ,
   PRIMARY KEY (squad, numero)
 );
 
--- Para bancos já criados antes desta coluna existir:
+-- Para bancos já criados antes destas colunas existirem:
 ALTER TABLE items ADD COLUMN IF NOT EXISTS impedido BOOLEAN NOT NULL DEFAULT false;
+ALTER TABLE items ADD COLUMN IF NOT EXISTS aberto_em TIMESTAMPTZ;
+ALTER TABLE items ADD COLUMN IF NOT EXISTS andamento_em TIMESTAMPTZ;
+ALTER TABLE items ADD COLUMN IF NOT EXISTS homologacao_em TIMESTAMPTZ;
+ALTER TABLE items ADD COLUMN IF NOT EXISTS concluido_em TIMESTAMPTZ;
 
 -- Opções dos filtros, por squad (uma linha por squad com os 4 grupos em JSON)
 CREATE TABLE IF NOT EXISTS app_options (

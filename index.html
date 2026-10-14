@@ -1465,7 +1465,7 @@ var supabase = null;
       render();
       return;
     }
-    var pItems = supabase.from("items").select("numero,nome,po,pri,status,area,prazo,ordem,tipo,impedido").eq("squad", squad).order("ordem");
+    var pItems = supabase.from("items").select("numero,nome,po,pri,status,area,prazo,ordem,tipo,impedido,aberto_em,andamento_em,homologacao_em,concluido_em").eq("squad", squad).order("ordem");
     var pOpts = supabase.from("app_options").select("data").eq("squad", squad).maybeSingle();
     Promise.all([pItems, pOpts]).then(function(res){
       var it = res[0], op = res[1];
@@ -1507,7 +1507,7 @@ var supabase = null;
         if (d.error) throw d.error;
         if (!items.length) return null;
         var rows = items.map(function(r){
-          return { squad: currentSquad, numero: r.numero, nome: r.nome, po: r.po, pri: r.pri, status: r.status, area: r.area, prazo: r.prazo || "", ordem: r.ordem, tipo: r.tipo || "User Story", impedido: !!r.impedido };
+          return { squad: currentSquad, numero: r.numero, nome: r.nome, po: r.po, pri: r.pri, status: r.status, area: r.area, prazo: r.prazo || "", ordem: r.ordem, tipo: r.tipo || "User Story", impedido: !!r.impedido, aberto_em: r.aberto_em || null, andamento_em: r.andamento_em || null, homologacao_em: r.homologacao_em || null, concluido_em: r.concluido_em || null };
         });
         return supabase.from("items").insert(rows);
       })
@@ -1750,6 +1750,17 @@ var supabase = null;
     el._t = setTimeout(function(){ el.className = "toast"; }, 3200);
   }
 
+  function nowIso(){ return new Date().toISOString(); }
+  // Marcos de tempo por etapa: grava só na 1ª vez que o item entra em cada fase.
+  function stampTimes(it){
+    if (!it) return;
+    if (!it.aberto_em) it.aberto_em = nowIso();
+    var cat = statusCategory(it.status);
+    if (cat === "andamento" && !it.andamento_em) it.andamento_em = nowIso();
+    if (cat === "homologacao" && !it.homologacao_em) it.homologacao_em = nowIso();
+    if (cat === "concluido" && !it.concluido_em) it.concluido_em = nowIso();
+  }
+
   function saveItem(){
     try {
       if (!items) items = [];
@@ -1784,7 +1795,9 @@ var supabase = null;
       if (editing){
         var i = items.indexOf(editing);
         items[i] = Object.assign({}, editing, data);
+        stampTimes(items[i]);
       } else {
+        stampTimes(data);
         items.push(data);
       }
       renumber();
@@ -2220,6 +2233,7 @@ var supabase = null;
       if (!n.numero){ max++; n.numero = "DC-" + max; }
     });
     var qtd = importItems.length;
+    importItems.forEach(stampTimes);
     items = items.concat(importItems);
     renumber();
     save();
@@ -2433,7 +2447,7 @@ var supabase = null;
     if (!statusUpdates.length) return;
     var changed = 0;
     statusUpdates.forEach(function(u){
-      if (u.item.status !== u.status){ u.item.status = u.status; changed++; }
+      if (u.item.status !== u.status){ u.item.status = u.status; stampTimes(u.item); changed++; }
     });
     renumber();
     save();
