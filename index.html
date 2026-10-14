@@ -1173,7 +1173,7 @@ var supabase = null;
     { key: "backlog",     label: "Backlog",        match: ["backlog","aberto","aberta","refinamento","refinar","novo","new","todo","to do","triagem","ideia"] },
     { key: "andamento",   label: "Em andamento",   match: ["andamento","desenvolvimento","desenvolvendo","teste","testando","revisao","doing","active","execucao"] },
     { key: "homologacao", label: "Em homologação", match: ["homologacao","homologando"] },
-    { key: "concluido",   label: "Concluído",      match: ["concluido","finalizado","entregue","closed","done","resolved"] },
+    { key: "concluido",   label: "Concluído",      match: ["concluido","concluida","encerrado","encerrada","finalizado","entregue","closed","done","resolved"] },
     { key: "bloqueado",   label: "Bloqueado",      match: ["bloqueado","blocked","impedido","pausado","parado"] }
   ];
   var CORE_CATS = ["backlog","andamento","homologacao","concluido"];
@@ -2101,10 +2101,11 @@ var supabase = null;
   }
   function normalizeTipo(v){
     var s = String(v || "").toLowerCase().trim();
+    if (!s) return "";
     if (/bug|defeito|erro/.test(s)) return "Bug";
     if (/^us$/.test(s) || s.indexOf("user story") >= 0 || s.indexOf("historia") >= 0 || s.indexOf("estoria") >= 0) return "User Story";
     if (s.indexOf("ticket") >= 0 || s.indexOf("chamado") >= 0) return "Ticket";
-    return "User Story";
+    return "";   // não é User Story, Ticket nem Bug (ex.: Epic/Feature) → ignorar
   }
   function matchPoOption(fullName){
     var n = String(fullName || "").trim().toLowerCase();
@@ -2140,6 +2141,14 @@ var supabase = null;
     } else {
       stStatus = defaultStatusMap(fields.status) || fields.status;
     }
+    // Só entram User Story, Ticket ou Bug. Epic/Feature (e outros) são ignorados.
+    var tipoVal;
+    if (!fields.tipo){
+      tipoVal = "User Story";
+    } else {
+      tipoVal = normalizeTipo(fields.tipo);
+      if (!tipoVal) return null;
+    }
     return {
       numero: fields.numero || "",
       nome: fields.nome,
@@ -2148,7 +2157,7 @@ var supabase = null;
       status: stStatus,
       area: fields.area || detectArea(fields.nome, options.areas),
       prazo: normalizePrazo(fields.prazo),
-      tipo: fields.tipo ? normalizeTipo(fields.tipo) : "User Story",
+      tipo: tipoVal,
       ordem: 0
     };
   }
@@ -2251,6 +2260,10 @@ var supabase = null;
     "to do": "backlog",
     "concluido": "concluido",
     "concluida": "concluido",
+    "encerrado": "concluido",
+    "encerrada": "concluido",
+    "finalizado": "concluido",
+    "entregue": "concluido",
     "closed": "concluido",
     "done": "concluido",
     "resolved": "concluido",
